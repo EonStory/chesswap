@@ -1,0 +1,4300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cardinal Chess - Swap Variant</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .side-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 150px;
+            backdrop-filter: blur(10px);
+        }
+
+        .side-panel h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+
+        .side-panel.white h3 {
+            color: #f0f0f0;
+        }
+
+        .side-panel.black h3 {
+            color: #a0a0a0;
+        }
+
+        .score-box {
+            margin: 10px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .score-value {
+            font-weight: bold;
+            font-size: 2.4em;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+
+        .score-value.near-win {
+            color: #4ade80;
+        }
+
+        .score-label {
+            font-size: 0.85em;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        .timer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .timer-value {
+            font-size: 2em;
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        .timer-value.warning {
+            color: #fbbf24;
+        }
+
+        .timer-value.danger {
+            color: #ef4444;
+        }
+
+        .center-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .turn-indicator {
+            font-size: 1.5em;
+            padding: 10px 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .turn-indicator .piece-icon {
+            font-size: 1.2em;
+        }
+
+        .board-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .col-labels {
+            display: flex;
+            margin-left: 28px;
+            margin-top: 4px;
+        }
+
+        .col-labels .coord {
+            width: var(--square-size, 80px);
+        }
+
+        .board-row {
+            display: flex;
+        }
+
+        .row-labels {
+            display: flex;
+            flex-direction: column;
+            margin-right: 4px;
+        }
+
+        .row-labels .coord {
+            height: var(--square-size, 80px);
+        }
+
+        .coord {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            color: #888;
+            font-weight: bold;
+        }
+
+
+        /* Walnut frame around the board */
+        .board {
+            position: relative;
+            display: grid;
+            grid-template-columns: repeat(var(--board-size, 5), var(--square-size, 80px));
+            grid-template-rows: repeat(var(--board-size, 5), var(--square-size, 80px));
+            border: 12px solid #5c3a1e;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.55),
+                0 0 0 1px rgba(0, 0, 0, 0.4),
+                inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+
+        /* Off the winning line: the board stays red until you undo back onto
+           it. Above the pieces, below nothing - it is a wash over the lot. */
+        .board.off-line::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(220, 38, 38, 0.3);
+            pointer-events: none;
+            z-index: 200;
+            animation: offLineIn 0.25s ease;
+        }
+
+        @keyframes offLineIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .square {
+            width: var(--square-size, 80px);
+            height: var(--square-size, 80px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: var(--piece-size, 50px);
+            box-sizing: border-box;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        /* Flat wood tones, no texture */
+        .square.light {
+            background-color: #e3c193;
+        }
+
+        .square.dark {
+            background-color: #a06a3c;
+        }
+
+        .square:hover {
+            filter: brightness(1.1);
+        }
+
+        .square:hover .piece {
+            transform: scale(1.1);
+        }
+
+        .square.selected {
+            background: #d9a441 !important;
+            box-shadow: inset 0 0 22px rgba(90, 50, 10, 0.55);
+        }
+
+        .square.valid-move {
+            position: relative;
+        }
+
+        .square.valid-move::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: rgba(24, 122, 62, 0.55);
+            border-radius: 50%;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .square.valid-swap {
+            background: #e8b93c !important;
+            box-shadow: inset 0 0 0 3px rgba(120, 70, 20, 0.45);
+        }
+
+        .piece {
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            transition: transform 0.15s ease;
+            user-select: none;
+            pointer-events: none;
+            position: relative;
+            z-index: 10;
+        }
+
+        .piece.animating {
+            position: absolute;
+            z-index: 100;
+            transition: transform 0.2s ease-out;
+        }
+
+        /* Puzzle hint - the piece that has to move. The pulse carries it even
+           where the glow does not, which matters for the pale pieces. */
+        .piece.hinted {
+            animation: hintGlow 1.1s ease-in-out infinite;
+        }
+
+        @keyframes hintGlow {
+            0%, 100% {
+                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+                transform: scale(1);
+            }
+            50% {
+                text-shadow: 0 0 8px #fffbe6, 0 0 18px #fde047, 0 0 32px #facc15,
+                             0 0 48px rgba(250, 204, 21, 0.7),
+                             2px 2px 4px rgba(0, 0, 0, 0.3);
+                transform: scale(1.18);
+            }
+        }
+
+        .square.last-move-from {
+            box-shadow: inset 0 0 0 100px rgba(226, 178, 52, 0.35);
+        }
+
+        .square.last-move-to {
+            box-shadow: inset 0 0 0 100px rgba(226, 178, 52, 0.5);
+        }
+
+        .piece.white {
+            color: #fff;
+            filter: drop-shadow(1px 1px 1px #000);
+        }
+
+        .piece.black {
+            color: #1a1a1a;
+            filter: drop-shadow(1px 1px 1px #666);
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            z-index: 100;
+            display: none;
+        }
+
+        .message.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+
+        .winner-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(90deg, rgba(74, 222, 128, 0.9), rgba(34, 197, 94, 0.9));
+            padding: 12px 20px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            z-index: 200;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .winner-banner.show {
+            display: flex;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(0); }
+        }
+
+        .winner-banner .winner-text {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .winner-banner .btn {
+            padding: 8px 20px;
+            font-size: 0.95em;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .btn.secondary {
+            background: #6b7280;
+        }
+
+        .btn.secondary:hover {
+            background: #4b5563;
+        }
+
+        .resign-btn {
+            padding: 8px 22px;
+            font-size: 0.9em;
+            opacity: 0.75;
+        }
+
+        .resign-btn:hover {
+            opacity: 1;
+        }
+
+        .game-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        /* Puzzle mode */
+        .puzzle-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 400;
+            flex-direction: column;
+        }
+
+        .puzzle-overlay.show {
+            display: flex;
+        }
+
+        .puzzle-header {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 24px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 40px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .puzzle-score {
+            font-size: 1.5em;
+            color: #fff;
+            white-space: nowrap;
+        }
+
+        .puzzle-header .btn {
+            font-size: 0.9em;
+            padding: 8px 18px;
+        }
+
+        .puzzle-header .btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+            transform: none;
+        }
+
+        .puzzle-score .narrow {
+            display: none;
+        }
+
+        .puzzle-score span {
+            color: #fbbf24;
+            font-weight: bold;
+        }
+
+        .puzzle-hint {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #a0a0a0;
+            font-size: 1.2em;
+        }
+
+        .puzzle-turn-indicator {
+            position: fixed;
+            top: 108px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 1.4em;
+            padding: 10px 28px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+
+        /* The score is the thing you are actually racing, so it is the
+           loudest part of the band. */
+        .puzzle-turn-indicator .tally {
+            border-left: 1px solid rgba(255, 255, 255, 0.25);
+            padding-left: 18px;
+            color: #c8c8d4;
+        }
+
+        .puzzle-turn-indicator .tally b {
+            font-size: 1.25em;
+            color: #fbbf24;
+        }
+
+        .puzzle-turn-indicator .dash {
+            opacity: 0.45;
+            padding: 0 4px;
+        }
+
+        .puzzle-loading {
+            font-size: 1.5em;
+            color: #a0a0a0;
+        }
+
+        /* Puzzle mode - center the board */
+        .game-container.puzzle-mode {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 401;
+            gap: 0;
+        }
+
+        .game-container.puzzle-mode .center-section {
+            margin: 0;
+        }
+
+        /* Verdict panel - sits below the board */
+        .puzzle-verdict {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1a2e;
+            padding: 15px 30px;
+            border-radius: 12px;
+            text-align: center;
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .puzzle-verdict h2 {
+            margin: 0;
+            font-size: 1.3em;
+            color: #4ade80;
+        }
+
+        .puzzle-verdict.missed h2 {
+            color: #ef4444;
+        }
+
+        .puzzle-verdict .detail {
+            color: #a0a0a0;
+        }
+
+        /* Undo belongs on the verdict itself when the verdict is a dead end -
+           backing out is the whole point of having been let in there. */
+        .puzzle-verdict #puzzleVerdictUndo {
+            display: none;
+        }
+
+        .puzzle-verdict.dead-end #puzzleVerdictUndo {
+            display: inline-block;
+        }
+
+        .mode-select {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+            overflow-y: auto;
+        }
+
+        .mode-select.hidden {
+            display: none;
+        }
+
+        .mode-content {
+            text-align: center;
+            animation: popIn 0.5s ease;
+            margin: auto; /* keeps centering but allows scroll when it overflows */
+            padding: 30px 0;
+        }
+
+        .mode-content h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            color: #fbbf24;
+        }
+
+        .mode-content p {
+            font-size: 1.1em;
+            margin-bottom: 40px;
+            color: #a0a0a0;
+        }
+
+        .mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .mode-btn {
+            padding: 20px 50px;
+            font-size: 1.3em;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #3b82f6;
+            transform: translateY(-3px);
+        }
+
+        .mode-btn .icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+
+        .mode-btn .desc {
+            display: block;
+            font-size: 0.7em;
+            color: #a0a0a0;
+            margin-top: 5px;
+        }
+
+        /* The puzzle card is a panel, not a button - the levels inside it are */
+        .mode-card {
+            cursor: default;
+            padding-bottom: 16px;
+        }
+
+        .mode-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: none;
+        }
+
+        .puzzle-levels {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .level-btn {
+            flex: 1;
+            padding: 10px 4px;
+            font-size: 0.6em;
+            font-family: inherit;
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+
+        .level-btn:hover {
+            background: rgba(59, 130, 246, 0.35);
+            border-color: #3b82f6;
+        }
+
+        /* Static rules card on the menu - deliberately not button-like */
+        .menu-rules {
+            margin: 30px auto 0;
+            max-width: 440px;
+            text-align: left;
+            font-size: 0.85em;
+            color: #a0a0a0;
+            padding: 16px 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .menu-rules h4 {
+            color: #fbbf24;
+            margin-bottom: 8px;
+            font-size: 1em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .menu-rules ul {
+            list-style: none;
+            line-height: 1.7;
+        }
+
+        .menu-rules li::before {
+            content: '→ ';
+            color: #4ade80;
+        }
+
+        .menu-rules strong {
+            color: #e5e5e5;
+        }
+
+        .game-config {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 300;
+        }
+
+        .game-config.show {
+            display: flex;
+        }
+
+        .config-content {
+            text-align: center;
+            animation: popIn 0.3s ease;
+        }
+
+        .config-content h2 {
+            font-size: 1.8em;
+            margin-bottom: 30px;
+            color: #fbbf24;
+        }
+
+        .config-section {
+            margin-bottom: 25px;
+        }
+
+        .config-section h3 {
+            font-size: 1.1em;
+            margin-bottom: 12px;
+            color: #a0a0a0;
+        }
+
+        .config-options {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .config-btn {
+            padding: 12px 24px;
+            font-size: 1em;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .config-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #3b82f6;
+        }
+
+        .config-btn.selected {
+            background: rgba(59, 130, 246, 0.3);
+            border-color: #3b82f6;
+        }
+
+        .config-btn .icon {
+            margin-right: 6px;
+        }
+
+        .config-actions {
+            margin-top: 30px;
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .move-log-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            min-width: 180px;
+            max-width: 180px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            max-height: 450px;
+        }
+
+        .move-log-panel h3 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 1em;
+            color: #a0a0a0;
+        }
+
+        .move-log {
+            flex: 1;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9em;
+            min-height: 280px;
+            max-height: 280px;
+        }
+
+        .move-log::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .move-log::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+
+        .move-log::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        .move-entry {
+            display: flex;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .move-entry:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .move-entry.active {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
+        .move-number {
+            color: #6b7280;
+            width: 25px;
+            flex-shrink: 0;
+        }
+
+        .move-white {
+            color: #fff;
+            flex: 1;
+        }
+
+        .move-black {
+            color: #a0a0a0;
+            flex: 1;
+        }
+
+        .move-swap {
+            color: #fde047;
+        }
+
+        .history-controls {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-btn {
+            width: 36px;
+            height: 36px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.15s;
+        }
+
+        .history-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .history-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .viewing-history {
+            text-align: center;
+            color: #fbbf24;
+            font-size: 0.8em;
+            margin-top: 8px;
+        }
+
+        .rules {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.85em;
+            max-width: 280px;
+            backdrop-filter: blur(10px);
+        }
+
+        .rules h4 {
+            margin-bottom: 10px;
+            color: #fbbf24;
+        }
+
+        .rules ul {
+            list-style: none;
+            line-height: 1.6;
+        }
+
+        .rules li::before {
+            content: '→ ';
+            color: #4ade80;
+        }
+
+        /*
+         * Compact layouts
+         *
+         * The desktop board sits between three utility panels.  That works
+         * well with a wide viewport, but makes the board too small (or causes
+         * horizontal scrolling) on a phone.  On narrower screens the board is
+         * the first, full-width item; player information and history follow it
+         * in a simple, touch-friendly grid.
+         */
+        @media (max-width: 1100px) {
+            body {
+                min-height: 100dvh;
+                display: block;
+                padding: max(12px, env(safe-area-inset-top))
+                         max(12px, env(safe-area-inset-right))
+                         max(12px, env(safe-area-inset-bottom))
+                         max(12px, env(safe-area-inset-left));
+                overflow-x: hidden;
+            }
+
+            .game-container {
+                display: grid !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-areas:
+                    "center center"
+                    "white black"
+                    "history history";
+                gap: 12px;
+                width: min(100%, 640px);
+                margin: 0 auto;
+                align-items: start;
+            }
+
+            .center-section {
+                grid-area: center;
+                width: 100%;
+                gap: 12px;
+            }
+
+            .side-panel {
+                min-width: 0;
+                width: 100%;
+                padding: 12px;
+            }
+
+            .side-panel.white {
+                grid-area: white;
+            }
+
+            .side-panel.black {
+                grid-area: black;
+            }
+
+            .side-panel h3 {
+                margin-bottom: 8px;
+                font-size: 1em;
+            }
+
+            .timer {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 8px;
+                margin-top: 8px;
+                padding: 8px 10px;
+            }
+
+            .timer-value {
+                font-size: 1.45em;
+            }
+
+            .move-log-panel {
+                grid-area: history;
+                width: 100%;
+                min-width: 0;
+                max-width: none;
+                max-height: none;
+                padding: 12px;
+            }
+
+            .move-log {
+                min-height: 96px;
+                max-height: 144px;
+            }
+
+            .history-btn {
+                width: 42px;
+                height: 42px;
+            }
+
+            .rules {
+                display: none;
+            }
+
+            .game-container.puzzle-mode {
+                display: flex !important;
+                width: calc(100vw - 24px);
+                max-width: 640px;
+            }
+
+            .mode-select,
+            .game-config,
+            .puzzle-overlay {
+                padding: max(16px, env(safe-area-inset-top))
+                         max(12px, env(safe-area-inset-right))
+                         max(16px, env(safe-area-inset-bottom))
+                         max(12px, env(safe-area-inset-left));
+                overflow-y: auto;
+            }
+
+            .mode-content,
+            .config-content {
+                width: min(100%, 500px);
+            }
+        }
+
+        @media (max-width: 760px) {
+            .turn-indicator {
+                width: 100%;
+                max-width: 360px;
+                padding: 9px 14px;
+                font-size: 1.1em;
+                text-align: center;
+            }
+
+            .board-wrapper {
+                max-width: 100%;
+            }
+
+            .row-labels {
+                margin-right: 3px;
+            }
+
+            .col-labels {
+                margin-left: 26px;
+            }
+
+            .coord {
+                font-size: 10px;
+            }
+
+            .square.valid-move::after {
+                width: 40%;
+                height: 40%;
+            }
+
+            .resign-btn {
+                min-height: 44px;
+                padding: 9px 20px;
+            }
+
+            .side-panel {
+                padding: 10px;
+            }
+
+            .side-panel h3 {
+                font-size: 0.9em;
+            }
+
+            .timer {
+                padding: 7px;
+                font-size: 0.85em;
+            }
+
+            .timer-value {
+                font-size: 1.25em;
+            }
+
+            .move-log-panel {
+                padding: 10px;
+            }
+
+            .move-log {
+                min-height: 80px;
+                max-height: 120px;
+            }
+
+            .mode-content {
+                padding: 8px 0;
+            }
+
+            .mode-content h1 {
+                font-size: 2em;
+            }
+
+            .mode-content p {
+                margin-bottom: 24px;
+                font-size: 1em;
+            }
+
+            .mode-buttons {
+                gap: 10px;
+            }
+
+            .mode-btn {
+                width: 100%;
+                min-height: 64px;
+                padding: 13px 16px;
+                font-size: 1.05em;
+            }
+
+            .level-btn {
+                min-height: 44px;
+                font-size: 0.72em;
+            }
+
+            .menu-rules {
+                margin-top: 20px;
+                padding: 14px 4px 0;
+                font-size: 0.8em;
+            }
+
+            .config-content h2 {
+                margin-bottom: 20px;
+                font-size: 1.55em;
+            }
+
+            .config-section {
+                margin-bottom: 20px;
+            }
+
+            .config-options {
+                gap: 8px;
+            }
+
+            .config-btn {
+                min-height: 44px;
+                padding: 9px 13px;
+            }
+
+            .config-actions {
+                margin-top: 22px;
+            }
+
+            .btn {
+                min-height: 44px;
+                padding: 10px 18px;
+                font-size: 1em;
+            }
+
+            .winner-banner {
+                flex-wrap: wrap;
+                gap: 8px;
+                padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+            }
+
+            .winner-banner .winner-text {
+                width: 100%;
+                text-align: center;
+                font-size: 1.1em;
+            }
+
+            .message {
+                top: max(12px, env(safe-area-inset-top));
+                width: calc(100% - 24px);
+                padding: 12px 16px;
+                font-size: 1em;
+                text-align: center;
+            }
+
+            .puzzle-header {
+                top: max(10px, env(safe-area-inset-top));
+                width: calc(100% - 24px);
+                justify-content: space-around;
+                gap: 10px;
+                padding: 9px 12px;
+            }
+
+            .puzzle-score {
+                font-size: 1.05em;
+            }
+
+            .puzzle-score .wide {
+                display: none;
+            }
+
+            .puzzle-score .narrow {
+                display: inline;
+            }
+
+            .puzzle-header .btn {
+                padding: 8px 9px;
+                font-size: 0.85em;
+            }
+
+            .puzzle-verdict {
+                flex-direction: column;
+                gap: 10px;
+                padding: 14px 20px;
+                max-width: calc(100vw - 24px);
+            }
+
+            .puzzle-verdict .detail {
+                font-size: 0.95em;
+            }
+
+            .puzzle-verdict.dead-end {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .puzzle-verdict.dead-end .detail {
+                flex-basis: 100%;
+            }
+
+            .puzzle-turn-indicator {
+                top: 70px;
+                max-width: calc(100% - 24px);
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+                padding: 8px 14px;
+                font-size: 1em;
+                text-align: center;
+            }
+
+            .puzzle-turn-indicator .tally {
+                padding-left: 10px;
+            }
+
+            .puzzle-hint {
+                bottom: max(10px, env(safe-area-inset-bottom));
+                width: calc(100% - 24px);
+                font-size: 0.95em;
+                text-align: center;
+            }
+        }
+
+        @media (hover: none) {
+            button,
+            .square {
+                touch-action: manipulation;
+            }
+
+            .btn:hover,
+            .mode-btn:hover {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="message" id="message"></div>
+
+    <div class="mode-select" id="modeSelect">
+        <div class="mode-content">
+            <h1>Cardinal Chess</h1>
+            <p>6x6 Swap-for-Points Variant</p>
+            <div class="mode-buttons">
+                <button class="mode-btn" onclick="startGame('ai')">
+                    <span class="icon">🤖</span> vs AI
+                    <span class="desc">Strength = think time, pick it in settings</span>
+                </button>
+                <button class="mode-btn" onclick="startGame('aiwatch')">
+                    <span class="icon">👀</span> Watch AI vs AI
+                    <span class="desc">Sit back and watch both sides think</span>
+                </button>
+                <div class="mode-btn mode-card">
+                    <span class="icon">🧩</span> Puzzles
+                    <span class="desc">Force the win - and only one move does it</span>
+                    <div class="puzzle-levels">
+                        <button class="level-btn" onclick="startPuzzles(1)">in 1 move</button>
+                        <button class="level-btn" onclick="startPuzzles(2)">in 2 moves</button>
+                        <button class="level-btn" onclick="startPuzzles(3)">in 3 moves</button>
+                    </div>
+                </div>
+                <button class="mode-btn" onclick="startGame('pvp')">
+                    <span class="icon">👥</span> Two Players
+                    <span class="desc">Play against a friend locally</span>
+                </button>
+            </div>
+            <div class="menu-rules">
+                <h4>How to play — Classic</h4>
+                <ul>
+                    <li>Pieces move like in chess, but there are <strong>no captures</strong> - moving onto an enemy piece <strong>swaps</strong> places with it</li>
+                    <li>A piece that was just swapped can't swap straight back</li>
+                    <li><strong>Score by the piece you swap with:</strong> Knight 5, Bishop/King 3, Rook 2, Queen 1</li>
+                    <li><strong>Win:</strong> swaps add to your score - first to <strong>25 points</strong> wins</li>
+                    <li>Threefold repetition is a draw</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="winner-banner" id="winnerBanner">
+        <span class="winner-text" id="winnerText">🏆 White Wins!</span>
+        <button class="btn" onclick="resetGame()">Play Again</button>
+        <button class="btn secondary" onclick="backToMenu()">Menu</button>
+    </div>
+
+    <div class="puzzle-overlay" id="puzzleOverlay">
+        <div class="puzzle-header" id="puzzleHeader">
+            <div class="puzzle-score"><span class="wide">Solved:</span><span class="narrow">✓</span> <span id="puzzleSolved">0</span></div>
+            <div class="puzzle-score"><span class="wide">Missed:</span><span class="narrow">✗</span> <span id="puzzleMissed">0</span></div>
+            <button class="btn secondary" id="puzzleUndo" onclick="undoPuzzleMove()">Undo</button>
+            <button class="btn secondary" onclick="hintPuzzle()">Hint</button>
+            <button class="btn secondary" onclick="skipPuzzle()">Skip</button>
+            <button class="btn secondary" onclick="exitPuzzles()">Menu</button>
+        </div>
+        <div class="puzzle-turn-indicator" id="puzzleTurnIndicator">
+            <span class="to-move"><b id="puzzleTurnSide">White</b> to move</span>
+            <span class="tally">White <b id="puzzleNeedWhite">0</b><span class="dash">-</span>Black <b id="puzzleNeedBlack">0</b></span>
+        </div>
+        <div class="puzzle-hint" id="puzzleHint">Force the win</div>
+        <div class="puzzle-loading" id="puzzleLoading">Finding a puzzle...</div>
+        <div class="puzzle-verdict" id="puzzleVerdict" style="display: none;">
+            <h2 id="puzzleVerdictText">Solved!</h2>
+            <span class="detail" id="puzzleVerdictDetail"></span>
+            <button class="btn" id="puzzleVerdictUndo" onclick="undoPuzzleMove()">Undo</button>
+            <button class="btn" onclick="nextPuzzle()">Next</button>
+        </div>
+    </div>
+
+    <div class="game-config" id="gameConfig">
+        <div class="config-content">
+            <h2 id="configTitle">Game Settings</h2>
+            <div class="config-section" id="turnTimeSection">
+                <h3>Time per Turn</h3>
+                <div class="config-options" id="timeOptions">
+                    <button class="config-btn" data-time="30" onclick="selectTime(30)">30s</button>
+                    <button class="config-btn selected" data-time="60" onclick="selectTime(60)">1 min</button>
+                    <button class="config-btn" data-time="120" onclick="selectTime(120)">2 min</button>
+                    <button class="config-btn" data-time="0" onclick="selectTime(0)">∞ Unlimited</button>
+                </div>
+            </div>
+            <div class="config-section" id="aiTimeSection" style="display: none;">
+                <h3 id="aiTimeTitle">AI Think Time</h3>
+                <div class="config-options" id="aiTimeOptions">
+                    <button class="config-btn selected" data-aitime="100" onclick="selectAITime(100)">0.1s</button>
+                    <button class="config-btn" data-aitime="500" onclick="selectAITime(500)">0.5s</button>
+                    <button class="config-btn" data-aitime="1000" onclick="selectAITime(1000)">1s</button>
+                    <button class="config-btn" data-aitime="3000" onclick="selectAITime(3000)">3s</button>
+                    <button class="config-btn" data-aitime="5000" onclick="selectAITime(5000)">5s</button>
+                </div>
+            </div>
+            <div class="config-section" id="sideSection">
+                <h3>Play as</h3>
+                <div class="config-options" id="sideOptions">
+                    <button class="config-btn" data-side="white" onclick="selectSide('white')"><span class="icon">♔</span>White</button>
+                    <button class="config-btn selected" data-side="random" onclick="selectSide('random')"><span class="icon">🎲</span>Random</button>
+                    <button class="config-btn" data-side="black" onclick="selectSide('black')"><span class="icon">♚</span>Black</button>
+                </div>
+            </div>
+            <div class="config-actions">
+                <button class="btn secondary" onclick="hideGameConfig()">Back</button>
+                <button class="btn" onclick="confirmGameStart()">Start Game</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <div class="side-panel white">
+            <h3>⚪ White</h3>
+            <div class="score-box">
+                <div class="score-value" id="whiteScore">0</div>
+                <div class="score-label">points</div>
+            </div>
+            <div class="timer" id="whiteTimer">
+                <div>Time</div>
+                <div class="timer-value" id="whiteTime">1:00</div>
+            </div>
+        </div>
+
+        <div class="center-section">
+            <div class="turn-indicator">
+                <span class="piece-icon" id="turnIcon">♔</span>
+                <span id="turnText">White's Turn</span>
+            </div>
+            <div class="board-wrapper">
+                <div class="board-row">
+                    <!-- Row labels (left) - generated dynamically -->
+                    <div class="row-labels" id="rowLabels"></div>
+                    <div class="board" id="board"></div>
+                </div>
+                <!-- Column labels (bottom) - generated dynamically -->
+                <div class="col-labels" id="colLabels"></div>
+            </div>
+            <div class="game-actions">
+                <button class="btn secondary resign-btn" id="aiWatchPause" onclick="toggleAIWatchPause()" style="display: none;">⏸ Pause</button>
+                <button class="btn secondary resign-btn" id="gameExitButton" onclick="resignGame()">🏳️ Resign</button>
+            </div>
+        </div>
+
+        <div class="side-panel black">
+            <h3>⚫ Black</h3>
+            <div class="score-box">
+                <div class="score-value" id="blackScore">0</div>
+                <div class="score-label">points</div>
+            </div>
+            <div class="timer" id="blackTimer">
+                <div>Time</div>
+                <div class="timer-value" id="blackTime">1:00</div>
+            </div>
+        </div>
+
+        <div class="move-log-panel">
+            <h3>Move History</h3>
+            <div class="move-log" id="moveLog"></div>
+            <div class="history-controls">
+                <button class="history-btn" onclick="goToStart()" title="Start">⏮</button>
+                <button class="history-btn" onclick="goBack()" title="Previous">◀</button>
+                <button class="history-btn" onclick="goForward()" title="Next">▶</button>
+                <button class="history-btn" onclick="goToEnd()" title="Current">⏭</button>
+            </div>
+            <div class="viewing-history" id="viewingHistory" style="display: none;">
+                Viewing history - click ⏭ to resume
+            </div>
+        </div>
+    </div>
+
+    <div class="rules" id="classicRules">
+        <h4>Cardinal Chess Rules</h4>
+        <ul>
+            <li>Pieces move like standard chess</li>
+            <li>No capturing - pieces swap positions</li>
+            <li>Can't swap back immediately after being swapped</li>
+            <li>A swap scores by the piece you moved: Knight 5, Bishop/King 3, Rook 2, Queen 1</li>
+            <li>Swaps add to your score - first to 25 points wins</li>
+            <li>Threefold repetition = automatic draw</li>
+        </ul>
+    </div>
+
+    <script>
+        // Piece definitions
+        var PIECES = {
+            K: { white: '♚', black: '♚', name: 'King' },
+            Q: { white: '♛', black: '♛', name: 'Queen' },
+            R: { white: '♜', black: '♜', name: 'Rook' },
+            B: { white: '♝', black: '♝', name: 'Bishop' },
+            N: { white: '♞', black: '♞', name: 'Knight' }
+        };
+
+        // Six pieces fill the 6x6 back rank: the two bishops always start on
+        // opposite square colours, so each side has one of each.
+        const PIECE_COUNT = 5;
+        const PIECE_TYPES = ['R', 'N', 'K', 'Q', 'B'];
+
+        // Points scoring: a swap scores by the piece you move, not the piece
+        // you land on. Taking with an awkward piece pays; taking with the
+        // queen barely pays at all. First side to WIN_SCORE points wins.
+        // These values are meant to be re-tuned via self-play (test/tune.js).
+        const MOVER_VALUES = { N: 5, B: 3, K: 3, R: 2, Q: 1 };
+        const WIN_SCORE = 25;
+
+        // Fixed board size of 6x6
+        const BOARD_SIZE = 6;
+        const SQUARE_SIZE = 70;
+        const PIECE_FONT_SIZE = 44;
+
+        // Game state
+        let boardSize = BOARD_SIZE; // Fixed 6x6 board
+        let board = [];
+        let currentTurn = 'white';
+        let selectedSquare = null;
+        let validMoves = [];
+        let whiteTime = 60;
+        let blackTime = 60;
+        let timerInterval = null;
+        let gameOver = false;
+        let scores = { white: 0, black: 0 }; // points banked; first to WIN_SCORE wins
+        let lastSwap = null; // Tracks the last swap to prevent immediate swap-back
+        let gameMode = null; // 'pvp', 'ai', or 'aiwatch'
+        let aiMoveTimeout = null; // Track AI timeout so we can cancel it
+        let aiWatchPaused = false;
+        let lastMove = null; // Tracks last move for highlighting {from, to}
+
+        // Game configuration
+        let selectedTime = 60; // seconds per turn (0 = unlimited)
+        let selectedAITime = 100; // AI think time in ms (its difficulty)
+        let selectedSide = 'random'; // 'white', 'black', or 'random'
+        let playerColor = 'white'; // actual color player is playing as
+        let pendingMode = null; // mode waiting to be started after config
+
+        // Game history for replay
+        let moveHistory = []; // Array of {from, to, piece, captured, notation}
+        let boardHistory = []; // Array of board states
+        let viewingIndex = -1; // -1 means viewing current, otherwise index into history
+        let positionCounts = new Map(); // Track position occurrences for threefold repetition
+
+        // Audio context for sounds
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playMoveSound() {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = 440;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // One oscillator with a click-free envelope. Everything below is built
+        // out of these, so there are no audio files to ship.
+        function tone({ freq, type = 'sine', at = 0, dur = 0.15, level = 0.2, sweepTo = 0, detune = 0 }) {
+            const t0 = audioCtx.currentTime + at;
+            const osc = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            osc.type = type;
+            osc.detune.value = detune;
+            osc.frequency.setValueAtTime(freq, t0);
+            if (sweepTo) osc.frequency.exponentialRampToValueAtTime(sweepTo, t0 + dur);
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(level, t0 + 0.012);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            osc.connect(g);
+            g.connect(audioCtx.destination);
+            osc.start(t0);
+            osc.stop(t0 + dur + 0.02);
+        }
+
+        // How good a swap sounds is ranked from MOVER_VALUES rather than hard
+        // coded, so re-tuning the piece values re-ranks the sounds with them:
+        // the cheapest swap in the table always gets tier 0, the dearest the
+        // dramatic one, whatever the numbers happen to be.
+        const SWAP_TIERS = (() => {
+            const distinct = [...new Set(Object.values(MOVER_VALUES))].sort((a, b) => a - b);
+            const tiers = {};
+            distinct.forEach((v, i) => {
+                tiers[v] = distinct.length === 1 ? 3 : Math.round(i * 3 / (distinct.length - 1));
+            });
+            return tiers;
+        })();
+
+        // C major throughout, so consecutive swaps never clash
+        const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5, G6 = 1568, C7 = 2093;
+
+        function playSwapSound(points) {
+            initAudio();
+            switch (SWAP_TIERS[points] ?? 0) {
+                case 0:   // basic: a single short blip
+                    tone({ freq: C5, dur: 0.12, level: 0.18 });
+                    break;
+                case 1:   // better: a rising fifth
+                    tone({ freq: C5, dur: 0.11, level: 0.18 });
+                    tone({ freq: G5, at: 0.07, dur: 0.17, level: 0.18, type: 'triangle' });
+                    break;
+                case 2:   // great: major triad arpeggio topped with the octave
+                    [C5, E5, G5].forEach((f, i) =>
+                        tone({ freq: f, at: i * 0.06, dur: 0.19, level: 0.16, type: 'triangle' }));
+                    tone({ freq: C6, at: 0.18, dur: 0.32, level: 0.13 });
+                    break;
+                default:  // dramatic: sub-bass drop under a detuned climb, ringing out on top
+                    tone({ freq: 130.81, dur: 0.36, level: 0.22, sweepTo: 65.4 });
+                    [C5, E5, G5, C6].forEach((f, i) => {
+                        tone({ freq: f, at: i * 0.055, dur: 0.3, level: 0.11, type: 'sawtooth' });
+                        tone({ freq: f, at: i * 0.055, dur: 0.3, level: 0.09, type: 'triangle', detune: 9 });
+                    });
+                    tone({ freq: G6, at: 0.24, dur: 0.5, level: 0.08 });
+                    tone({ freq: C7, at: 0.3, dur: 0.46, level: 0.055 });
+                    break;
+            }
+        }
+
+        function playWinSound() {
+            initAudio();
+            const notes = [523, 659, 784, 1047]; // C5, E5, G5, C6
+            notes.forEach((freq, i) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+                const startTime = audioCtx.currentTime + i * 0.1;
+                gain.gain.setValueAtTime(0.3, startTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.3);
+                osc.start(startTime);
+                osc.stop(startTime + 0.3);
+            });
+        }
+
+        function playWarningSound() {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = 880; // A5 - urgent tone
+            osc.type = 'square';
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        // Shuffle array in place (Fisher-Yates)
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Keep the board large on desktop, while fitting all six squares on a
+        // phone without asking the player to pan horizontally.
+        function getDisplaySquareSize() {
+            const viewportWidth = (typeof window !== 'undefined' &&
+                (window.visualViewport && window.visualViewport.width ||
+                 window.innerWidth)) || document.documentElement.clientWidth;
+            const isCompactViewport = Number.isFinite(viewportWidth) && viewportWidth <= 760;
+
+            if (!isCompactViewport) return SQUARE_SIZE;
+
+            // Account for the page padding, row labels, their gap, and the
+            // board border. This matches the compact CSS layout above.
+            const usableBoardWidth = viewportWidth - 60;
+            return Math.max(36, Math.min(SQUARE_SIZE,
+                Math.floor(usableBoardWidth / BOARD_SIZE)));
+        }
+
+        // Update CSS variables for board size
+        function updateBoardCSS() {
+            const root = document.documentElement;
+            const squareSize = getDisplaySquareSize();
+            const pieceSize = Math.round(squareSize * PIECE_FONT_SIZE / SQUARE_SIZE);
+            root.style.setProperty('--board-size', BOARD_SIZE);
+            root.style.setProperty('--square-size', squareSize + 'px');
+            root.style.setProperty('--piece-size', pieceSize + 'px');
+        }
+
+        if (typeof window !== 'undefined' && window.addEventListener) {
+            window.addEventListener('resize', updateBoardCSS, { passive: true });
+            window.addEventListener('orientationchange', updateBoardCSS, { passive: true });
+        }
+
+        // Generate row and column labels
+        function generateLabels() {
+            const rowLabels = document.getElementById('rowLabels');
+            const colLabels = document.getElementById('colLabels');
+
+            rowLabels.innerHTML = '';
+            colLabels.innerHTML = '';
+
+            // Row labels (numbers from BOARD_SIZE down to 1)
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                const div = document.createElement('div');
+                div.className = 'coord';
+                div.textContent = BOARD_SIZE - row;
+                rowLabels.appendChild(div);
+            }
+
+            // Column labels (letters a, b, c, ...)
+            const letters = 'abcdefgh';
+            for (let col = 0; col < BOARD_SIZE; col++) {
+                const div = document.createElement('div');
+                div.className = 'coord';
+                div.textContent = letters[col];
+                colLabels.appendChild(div);
+            }
+        }
+
+        // Initialize the board
+        // A random back rank: the five pieces land in five of the six columns,
+        // in random order, so one column starts empty. Returns an array of
+        // Place pieces randomly across the back two rows.
+        // Returns an array of {row, col, type} placements (row offsets 0-1 from the back).
+        function randomBackRows() {
+            const types = shuffle([...PIECE_TYPES]);
+            const squares = [];
+            for (let r = 0; r < 2; r++)
+                for (let c = 0; c < BOARD_SIZE; c++)
+                    squares.push({ r, c });
+            const picked = shuffle(squares).slice(0, PIECE_COUNT);
+            return picked.map((sq, i) => ({ row: sq.r, col: sq.c, type: types[i] }));
+        }
+
+        // Lay pieces across the back two rows for both sides.
+        // Half the time black mirrors white, half the time rotated 180.
+        function dealBoard(target) {
+            const placements = randomBackRows();
+            const rotated = Math.random() < 0.5;
+            for (const p of placements) {
+                const wRow = BOARD_SIZE - 1 - p.row;
+                target[wRow][p.col] = { type: p.type, color: 'white' };
+                const bRow = p.row;
+                const bCol = rotated ? BOARD_SIZE - 1 - p.col : p.col;
+                target[bRow][bCol] = { type: p.type, color: 'black' };
+            }
+        }
+
+        function initBoard() {
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+            dealBoard(board);
+
+            // Update CSS and labels for current board size
+            updateBoardCSS();
+            generateLabels();
+        }
+
+        // Render the board
+        function renderBoard() {
+            const boardEl = document.getElementById('board');
+            boardEl.classList.toggle('off-line', !!puzzleOffLine);
+            boardEl.innerHTML = '';
+
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const square = document.createElement('div');
+                    square.className = 'square ' + ((row + col) % 2 === 0 ? 'light' : 'dark');
+                    square.dataset.row = row;
+                    square.dataset.col = col;
+
+                    if (selectedSquare && selectedSquare.row === row && selectedSquare.col === col) {
+                        square.classList.add('selected');
+                    }
+
+                    // Highlight last move
+                    if (lastMove) {
+                        if (lastMove.from.row === row && lastMove.from.col === col) {
+                            square.classList.add('last-move-from');
+                        }
+                        if (lastMove.to.row === row && lastMove.to.col === col) {
+                            square.classList.add('last-move-to');
+                        }
+                    }
+
+                    const isValidMove = validMoves.some(m => m.row === row && m.col === col);
+                    if (isValidMove) {
+                        const targetPiece = board[row][col];
+                        if (targetPiece && targetPiece.color !== currentTurn) {
+                            square.classList.add('valid-swap');
+                        } else {
+                            square.classList.add('valid-move');
+                        }
+                    }
+
+                    const piece = board[row][col];
+                    if (piece) {
+                        const pieceEl = document.createElement('span');
+                        pieceEl.className = `piece ${piece.color}`;
+                        if (puzzleHintSquare && puzzleHintSquare.row === row
+                                && puzzleHintSquare.col === col) {
+                            pieceEl.classList.add('hinted');
+                        }
+                        pieceEl.textContent = PIECES[piece.type][piece.color];
+                        square.appendChild(pieceEl);
+                    }
+
+                    square.addEventListener('click', () => handleSquareClick(row, col));
+                    boardEl.appendChild(square);
+                }
+            }
+        }
+
+        // Get valid moves for a piece
+        function getValidMoves(row, col) {
+            const piece = board[row][col];
+            if (!piece) return [];
+
+            const moves = [];
+
+            switch (piece.type) {
+                case 'K': // King - one square any direction
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (dr === 0 && dc === 0) continue;
+                            const newRow = row + dr;
+                            const newCol = col + dc;
+                            if (isValidPosition(newRow, newCol)) {
+                                const target = board[newRow][newCol];
+                                if (!target || target.color !== piece.color) {
+                                    moves.push({ row: newRow, col: newCol });
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                case 'Q': // Queen - any direction, any distance
+                    addLinearMoves(moves, row, col, piece.color, [
+                        [-1, 0], [1, 0], [0, -1], [0, 1],
+                        [-1, -1], [-1, 1], [1, -1], [1, 1]
+                    ]);
+                    break;
+
+                case 'R': // Rook - horizontal/vertical
+                    addLinearMoves(moves, row, col, piece.color, [
+                        [-1, 0], [1, 0], [0, -1], [0, 1]
+                    ]);
+                    break;
+
+                case 'B': // Bishop - diagonal
+                    addLinearMoves(moves, row, col, piece.color, [
+                        [-1, -1], [-1, 1], [1, -1], [1, 1]
+                    ]);
+                    break;
+
+                case 'N': // Knight - L-shape
+                    const knightMoves = [
+                        [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+                        [1, -2], [1, 2], [2, -1], [2, 1]
+                    ];
+                    for (const [dr, dc] of knightMoves) {
+                        const newRow = row + dr;
+                        const newCol = col + dc;
+                        if (isValidPosition(newRow, newCol)) {
+                            const target = board[newRow][newCol];
+                            if (!target || target.color !== piece.color) {
+                                moves.push({ row: newRow, col: newCol });
+                            }
+                        }
+                    }
+                    break;
+            }
+
+            // Filter out swap-back move if this piece was just swapped
+            if (lastSwap &&
+                lastSwap.swappedPiecePos.row === row &&
+                lastSwap.swappedPiecePos.col === col) {
+                return moves.filter(m =>
+                    !(m.row === lastSwap.originalPos.row && m.col === lastSwap.originalPos.col)
+                );
+            }
+
+            return moves;
+        }
+
+        // Add linear moves (for Queen, Rook, Bishop)
+        function addLinearMoves(moves, row, col, color, directions) {
+            for (const [dr, dc] of directions) {
+                let newRow = row + dr;
+                let newCol = col + dc;
+
+                while (isValidPosition(newRow, newCol)) {
+                    const target = board[newRow][newCol];
+                    if (target) {
+                        if (target.color !== color) {
+                            moves.push({ row: newRow, col: newCol });
+                        }
+                        break;
+                    }
+                    moves.push({ row: newRow, col: newCol });
+                    newRow += dr;
+                    newCol += dc;
+                }
+            }
+        }
+
+        function isValidPosition(row, col) {
+            return row >= 0 && row < BOARD_SIZE && col >= 0 && col < BOARD_SIZE;
+        }
+
+        // Handle square click
+        function handleSquareClick(row, col) {
+            if (puzzleActive) { handlePuzzleClick(row, col); return; }
+
+            if (gameOver) return;
+            // Spectators never move pieces; in vs-AI, block the AI's turn.
+            if (gameMode === AI_WATCH_MODE ||
+                (isAIMode(gameMode) && currentTurn !== playerColor)) return;
+            // Block clicks when viewing history
+            if (viewingIndex !== -1) {
+                goToEnd(); // Return to live game
+                return;
+            }
+
+            const clickedPiece = board[row][col];
+
+            // If we have a selected piece and clicked on a valid move
+            if (selectedSquare) {
+                const isValidMove = validMoves.some(m => m.row === row && m.col === col);
+
+                if (isValidMove) {
+                    makeMove(selectedSquare.row, selectedSquare.col, row, col);
+                    selectedSquare = null;
+                    validMoves = [];
+                } else if (clickedPiece && clickedPiece.color === currentTurn) {
+                    // Select a different piece of same color
+                    selectedSquare = { row, col };
+                    validMoves = getValidMoves(row, col);
+                } else {
+                    // Deselect
+                    selectedSquare = null;
+                    validMoves = [];
+                }
+            } else {
+                // Select a piece
+                if (clickedPiece && clickedPiece.color === currentTurn) {
+                    selectedSquare = { row, col };
+                    validMoves = getValidMoves(row, col);
+                }
+            }
+
+            renderBoard();
+        }
+
+        // Animate a piece moving from one square to another
+        function animateMove(fromRow, fromCol, toRow, toCol, isSwap, callback) {
+            const boardEl = document.getElementById('board');
+            const squareSize = parseFloat(getComputedStyle(document.documentElement)
+                .getPropertyValue('--square-size')) || SQUARE_SIZE;
+
+            // Calculate pixel offsets
+            const fromX = fromCol * squareSize;
+            const fromY = fromRow * squareSize;
+            const toX = toCol * squareSize;
+            const toY = toRow * squareSize;
+            const deltaX = toX - fromX;
+            const deltaY = toY - fromY;
+
+            // Get the pieces to animate
+            const fromSquare = boardEl.children[fromRow * BOARD_SIZE + fromCol];
+            const toSquare = boardEl.children[toRow * BOARD_SIZE + toCol];
+            const movingPieceEl = fromSquare.querySelector('.piece');
+            const targetPieceEl = toSquare.querySelector('.piece');
+
+            if (movingPieceEl) {
+                movingPieceEl.classList.add('animating');
+                movingPieceEl.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+            }
+
+            // If swap, animate the other piece too
+            if (isSwap && targetPieceEl) {
+                targetPieceEl.classList.add('animating');
+                targetPieceEl.style.transform = `translate(${-deltaX}px, ${-deltaY}px)`;
+            }
+
+            // After animation completes, update the board
+            setTimeout(() => {
+                callback();
+            }, 200);
+        }
+
+        // Make a move
+        function makeMove(fromRow, fromCol, toRow, toCol) {
+            // If viewing history, return to live game first
+            if (viewingIndex !== -1) {
+                goToEnd();
+            }
+
+            const movingPiece = board[fromRow][fromCol];
+            const targetPiece = board[toRow][toCol];
+            const isSwap = !!targetPiece;
+
+            // Track last move for highlighting
+            lastMove = { from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } };
+
+            // Start animation, then complete the move
+            animateMove(fromRow, fromCol, toRow, toCol, isSwap, () => {
+                if (gameOver) return;   // clock ran out mid-animation
+
+                if (targetPiece) {
+                    // Swap pieces
+                    board[fromRow][fromCol] = targetPiece;
+                    board[toRow][toCol] = movingPiece;
+
+                    const points = MOVER_VALUES[movingPiece.type];
+                    scores[movingPiece.color] += points;
+                    showMessage(`${PIECES[movingPiece.type].name} swapped with ${PIECES[targetPiece.type].name} (+${points})!`);
+                    playSwapSound(points);
+
+                    // Track the swap - opponent's piece can't swap back immediately
+                    lastSwap = {
+                        swappedPiecePos: { row: fromRow, col: fromCol },
+                        originalPos: { row: toRow, col: toCol }
+                    };
+                } else {
+                    // Normal move - clear swap tracking
+                    board[toRow][toCol] = movingPiece;
+                    board[fromRow][fromCol] = null;
+                    lastSwap = null;
+                    playMoveSound();
+                }
+
+                // Record the move and save board state AFTER the move
+                recordMove(movingPiece, fromRow, fromCol, toRow, toCol, isSwap, targetPiece);
+                saveBoardState();
+
+                // Check win condition
+                if (checkWin(currentTurn)) {
+                    renderBoard();
+                    updateUI();
+                    endGame(currentTurn, 'points');
+                    return;
+                }
+
+                // Switch turns
+                currentTurn = currentTurn === 'white' ? 'black' : 'white';
+
+                // Check for threefold repetition AFTER turn switch so hash
+                // includes who is next to move (consistent with initial hash).
+                if (checkThreefoldRepetition()) {
+                    renderBoard();
+                    updateUI();
+                    endGame('draw', 'threefold');
+                    return;
+                }
+                resetTurnTimer();
+                updateUI();
+                renderBoard();
+
+                if (isAIControlledTurn()) scheduleAIMove();
+            });
+        }
+
+        // Points still needed to win, never below zero.
+        function remaining(color) {
+            return Math.max(0, WIN_SCORE - scores[color]);
+        }
+
+        // Check win condition - first to WIN_SCORE points.
+        function checkWin(color) {
+            return scores[color] >= WIN_SCORE;
+        }
+
+        // Update UI
+        function updateUI() {
+            // Update turn indicator
+            let turnText;
+            if (gameMode === AI_WATCH_MODE) {
+                turnText = aiWatchPaused
+                    ? `Paused — ${currentTurn === 'white' ? 'White' : 'Black'} to move`
+                    : `${currentTurn === 'white' ? 'White' : 'Black'} AI Thinking`;
+            } else if (isAIMode(gameMode)) {
+                turnText = currentTurn === playerColor ? 'Your Turn' : "AI's Turn";
+            } else {
+                turnText = `${currentTurn === 'white' ? 'White' : 'Black'}'s Turn`;
+            }
+            document.getElementById('turnText').textContent = turnText;
+            document.getElementById('turnIcon').textContent = currentTurn === 'white' ? '♔' : '♚';
+
+            // Update scores
+            const whiteScoreEl = document.getElementById('whiteScore');
+            const blackScoreEl = document.getElementById('blackScore');
+            const whiteLabelEl = document.querySelector('.side-panel.white .score-label');
+            const blackLabelEl = document.querySelector('.side-panel.black .score-label');
+            whiteScoreEl.textContent = scores.white;
+            blackScoreEl.textContent = scores.black;
+            whiteLabelEl.textContent = 'points';
+            blackLabelEl.textContent = 'points';
+            whiteScoreEl.classList.toggle('near-win', scores.white >= WIN_SCORE - 4);
+            blackScoreEl.classList.toggle('near-win', scores.black >= WIN_SCORE - 4);
+
+            // Update active timer styling
+            document.getElementById('whiteTimer').style.opacity = currentTurn === 'white' ? '1' : '0.5';
+            document.getElementById('blackTimer').style.opacity = currentTurn === 'black' ? '1' : '0.5';
+        }
+
+        // Timer functions
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+
+            // Don't start countdown if unlimited time
+            if (selectedTime === 0) return;
+
+            timerInterval = setInterval(() => {
+                if (gameOver) return;
+
+                if (currentTurn === 'white') {
+                    if (whiteTime === Infinity) return;
+                    whiteTime--;
+                    updateTimerDisplay('white', whiteTime);
+                    if (whiteTime === 10) playWarningSound();
+                    if (whiteTime <= 0) {
+                        endGame('black', 'timeout');
+                    }
+                } else {
+                    if (blackTime === Infinity) return;
+                    blackTime--;
+                    updateTimerDisplay('black', blackTime);
+                    if (blackTime === 10) playWarningSound();
+                    if (blackTime <= 0) {
+                        endGame('white', 'timeout');
+                    }
+                }
+            }, 1000);
+        }
+
+        function resetTurnTimer() {
+            const time = selectedTime || Infinity;
+            if (currentTurn === 'white') {
+                whiteTime = time;
+                updateTimerDisplay('white', whiteTime);
+            } else {
+                blackTime = time;
+                updateTimerDisplay('black', blackTime);
+            }
+        }
+
+        function updateTimerDisplay(color, time) {
+            const el = document.getElementById(`${color}Time`);
+
+            if (time === Infinity) {
+                el.textContent = '∞';
+                el.classList.remove('warning', 'danger');
+                return;
+            }
+
+            const minutes = Math.floor(time / 60);
+            const seconds = time % 60;
+            el.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            el.classList.remove('warning', 'danger');
+            if (time <= 10) {
+                el.classList.add('danger');
+            } else if (time <= 30) {
+                el.classList.add('warning');
+            }
+        }
+
+        // Show message
+        function showMessage(text) {
+            const msgEl = document.getElementById('message');
+            msgEl.textContent = text;
+            msgEl.classList.add('show');
+            setTimeout(() => msgEl.classList.remove('show'), 2000);
+        }
+
+        // Convert position to chess notation (a1-f6)
+        function posToNotation(row, col) {
+            const files = 'abcdef';
+            const ranks = '654321'; // Row 0 = rank 6, row 5 = rank 1
+            return files[col] + ranks[row];
+        }
+
+        // Generate hash of current board position for threefold repetition
+        // detection. The banked scores are part of it: shuffling back and
+        // forth over empty squares repeats a position and eventually draws,
+        // but a cycle where the pieces keep swapping is scoring points, so it
+        // never repeats and never draws.
+        function getBoardHash() {
+            let hash = `${currentTurn}|${scores.white}-${scores.black}|`;
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const piece = board[row][col];
+                    if (piece) {
+                        hash += piece.color[0] + piece.type;
+                    } else {
+                        hash += '..';
+                    }
+                }
+            }
+            if (lastSwap) {
+                hash += `|${lastSwap.swappedPiecePos.row},${lastSwap.swappedPiecePos.col}`;
+            }
+            return hash;
+        }
+
+        // Check for threefold repetition (returns true if position occurred 3+ times)
+        function checkThreefoldRepetition() {
+            const hash = getBoardHash();
+            const count = (positionCounts.get(hash) || 0) + 1;
+            positionCounts.set(hash, count);
+            return count >= 3;
+        }
+
+        // Generate move notation
+        function getMoveNotation(piece, fromRow, fromCol, toRow, toCol, isSwap, capturedPiece) {
+            const pieceSymbols = { K: 'K', Q: 'Q', R: 'R', B: 'B', N: 'N' };
+            const symbol = pieceSymbols[piece.type];
+            const dest = posToNotation(toRow, toCol);
+            if (isSwap) {
+                return symbol + 'x' + dest;
+            }
+            return symbol + dest;
+        }
+
+        // Save board state to history
+        function saveBoardState() {
+            boardHistory.push(JSON.parse(JSON.stringify(board)));
+        }
+
+        // Record a move in history
+        function recordMove(piece, fromRow, fromCol, toRow, toCol, isSwap, capturedPiece) {
+            const notation = getMoveNotation(piece, fromRow, fromCol, toRow, toCol, isSwap, capturedPiece);
+            moveHistory.push({
+                from: { row: fromRow, col: fromCol },
+                to: { row: toRow, col: toCol },
+                piece: piece,
+                captured: capturedPiece,
+                notation: notation,
+                isSwap: isSwap,
+                turn: currentTurn
+            });
+            updateMoveLog();
+        }
+
+        // Update move log display
+        function updateMoveLog() {
+            const logEl = document.getElementById('moveLog');
+            logEl.innerHTML = '';
+
+            for (let i = 0; i < moveHistory.length; i += 2) {
+                const moveNum = Math.floor(i / 2) + 1;
+                const whiteMove = moveHistory[i];
+                const blackMove = moveHistory[i + 1];
+
+                const entry = document.createElement('div');
+                entry.className = 'move-entry';
+                if (viewingIndex >= 0 && (viewingIndex === i || viewingIndex === i + 1)) {
+                    entry.classList.add('active');
+                }
+
+                const numSpan = document.createElement('span');
+                numSpan.className = 'move-number';
+                numSpan.textContent = moveNum + '.';
+
+                const whiteSpan = document.createElement('span');
+                whiteSpan.className = 'move-white' + (whiteMove.isSwap ? ' move-swap' : '');
+                whiteSpan.textContent = whiteMove.notation;
+                whiteSpan.onclick = () => goToMove(i);
+
+                entry.appendChild(numSpan);
+                entry.appendChild(whiteSpan);
+
+                if (blackMove) {
+                    const blackSpan = document.createElement('span');
+                    blackSpan.className = 'move-black' + (blackMove.isSwap ? ' move-swap' : '');
+                    blackSpan.textContent = blackMove.notation;
+                    blackSpan.onclick = () => goToMove(i + 1);
+                    entry.appendChild(blackSpan);
+                }
+
+                logEl.appendChild(entry);
+            }
+
+            // Scroll to bottom
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // History navigation
+        function goToMove(index) {
+            if (index < 0 || index >= boardHistory.length) return;
+            viewingIndex = index;
+            board = JSON.parse(JSON.stringify(boardHistory[index]));
+            renderBoard();
+            updateMoveLog();
+            document.getElementById('viewingHistory').style.display = 'block';
+        }
+
+        function goToStart() {
+            if (boardHistory.length === 0) return;
+            goToMove(0);
+        }
+
+        function goBack() {
+            if (boardHistory.length === 0) return;
+            if (viewingIndex === -1) {
+                goToMove(boardHistory.length - 1);
+            } else if (viewingIndex > 0) {
+                goToMove(viewingIndex - 1);
+            }
+        }
+
+        function goForward() {
+            if (viewingIndex === -1) return;
+            if (viewingIndex < boardHistory.length - 1) {
+                goToMove(viewingIndex + 1);
+            } else {
+                goToEnd();
+            }
+        }
+
+        function goToEnd() {
+            viewingIndex = -1;
+            // Restore current board state from the last entry in history
+            if (boardHistory.length > 0) {
+                board = JSON.parse(JSON.stringify(boardHistory[boardHistory.length - 1]));
+            }
+            renderBoard();
+            updateMoveLog();
+            document.getElementById('viewingHistory').style.display = 'none';
+        }
+
+        // Single AI opponent; strength comes from the think time chosen on
+        // the config screen (iterative deepening searches deeper with more time).
+        const AI_MODES = {
+            ai: { name: '🤖 AI', shortName: 'AI', title: 'vs AI', timeMs: 100 }
+        };
+        const AI_WATCH_MODE = 'aiwatch';
+        const AI_WATCH_DEFAULT_MS = 3000;
+
+        function isAIMode(mode) {
+            return Object.prototype.hasOwnProperty.call(AI_MODES, mode);
+        }
+
+        function isAIControlledTurn() {
+            return gameMode === AI_WATCH_MODE ||
+                (isAIMode(gameMode) && currentTurn !== playerColor);
+        }
+
+        // Schedule the AI's reply for the current game mode (no-op otherwise)
+        function scheduleAIMove() {
+            if (!isAIControlledTurn() || gameOver || aiWatchPaused) return;
+            if (aiMoveTimeout) clearTimeout(aiMoveTimeout);
+            aiMoveTimeout = setTimeout(() => {
+                aiMoveTimeout = null;
+                makeSmartAIMove({ timeMs: selectedAITime });
+            }, 500);
+        }
+
+        function updateGameModeControls() {
+            const watching = gameMode === AI_WATCH_MODE;
+            const pause = document.getElementById('aiWatchPause');
+            const exit = document.getElementById('gameExitButton');
+            pause.style.display = watching ? '' : 'none';
+            pause.disabled = !watching || gameOver;
+            pause.textContent = aiWatchPaused ? '▶ Resume' : '⏸ Pause';
+            exit.textContent = watching ? 'Menu' : '🏳️ Resign';
+            document.querySelectorAll('.side-panel .timer').forEach(el => {
+                el.style.display = watching ? 'none' : '';
+            });
+        }
+
+        function toggleAIWatchPause() {
+            if (gameMode !== AI_WATCH_MODE || gameOver) return;
+            aiWatchPaused = !aiWatchPaused;
+            if (aiWatchPaused) cancelPendingAIWork(true);
+            updateGameModeControls();
+            updateUI();
+            if (!aiWatchPaused) scheduleAIMove();
+        }
+
+        // Get all valid moves for a color
+        function getAllMoves(color) {
+            const allMoves = [];
+
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    const piece = board[row][col];
+                    if (piece && piece.color === color) {
+                        const moves = getValidMoves(row, col);
+                        for (const move of moves) {
+                            allMoves.push({
+                                from: { row, col },
+                                to: move
+                            });
+                        }
+                    }
+                }
+            }
+            return allMoves;
+        }
+
+        // ===================================================================
+        // Engine
+        //
+        // `buildEngine` is the whole search, closed over the rule constants
+        // it is given. The page builds one instance for the main thread, and
+        // the AI worker is just this same function stringified and called
+        // again - so there is exactly one copy of the engine.
+        //
+        // It keeps its own flat representation of the position and never
+        // touches the object board the UI renders from: a position is copied
+        // in, the search runs on typed arrays, and the chosen move is decoded
+        // back to {from:{row,col},to:{row,col}} on the way out.
+        //
+        // Search: negamax with alpha-beta, principal-variation search,
+        // iterative deepening with aspiration windows, a quiescence search
+        // over swaps (this game's captures), null-move pruning, late move
+        // reductions, futility and late-move pruning, a Zobrist transposition
+        // table, and TT / killer / counter-move / history move ordering.
+        // ===================================================================
+
+        function buildEngine(cfg) {
+            const SIZE = cfg.boardSize;
+            const NSQ = SIZE * SIZE;
+            const VOIDS = !!cfg.voids;
+            // The points target. think() can override it per search;
+            // changing it invalidates the table.
+            let winLimit = cfg.winScore;
+            // Piece types are indexed K,Q,R,B,N throughout.
+            const TYPE_LETTER = ['K', 'Q', 'R', 'B', 'N'];
+            const TYPE_INDEX = { K: 0, Q: 1, R: 2, B: 3, N: 4 };
+            const TYPE_VALUE = TYPE_LETTER.map(t => cfg.moverValues[t]);
+
+            const MAXPC = 30;        // piece cap: attacked-sets are bitmasks
+            const MAXPLY = 64;
+            const MAXMOVES = 96;     // upper bound on one side's move count
+            const INF = 1 << 29;
+            const MATE = 30000;      // reaching WIN_SCORE, adjusted by ply
+            const MATE_TH = 29000;
+            const PT = 100;          // eval units per game point
+
+            // ---- Tunable parameters ---------------------------------------
+            // Every number the search and evaluation were hand-picked with,
+            // in one place. cfg.tune overrides any of them, which is what
+            // lets test/selfplay.js play a candidate set against these
+            // defaults without touching the engine. Retune with self-play,
+            // not with intuition: see the Tuning section of the README.
+            const DEFAULTS = {
+                // Evaluation, in eval units (PT = 100 units per game point).
+                // Banked points dominate; the rest is a positional gradient
+                // worth at most about two points.
+                W_THREAT: 30,        // our best available swap (we move first)
+                W_THREAT_OPP: 20,    // their best available swap
+                W_THREAT2: 24,       // each further piece of ours that could swap
+                W_THREAT2_OPP: 4,    // ... and each further one of theirs
+                W_MOB: 2,            // per legal move
+                PROX: [0, 6, 3, 1, 0],   // by "moves to reach on an empty board"
+
+                // Forward pruning margins, by depth.
+                RFP: [0, 220, 480, 800],   // reverse futility
+                FUTILITY: [0, 250, 500],   // futility
+
+                // Quiescence.
+                QMAX: 6,             // ply cap
+                Q_DELTA: 150,        // delta-pruning margin
+
+                // Null move.
+                NULL_MIN_DEPTH: 3,   // shallowest depth that may try one
+                NULL_R: 3,           // base reduction
+                NULL_DEEP: 6,        // depth at which the reduction goes up by 1
+
+                // Late move reductions.
+                LMR_MIN_DEPTH: 3,
+                LMR_MIN_MOVES: 2,    // quiet moves before reducing at all
+                LMR_MORE: 6,         // ... and before reducing by one more
+                LMR_DEEP: 7,         // depth that adds one more
+
+                // Late move pruning: skip quiets past LMP_BASE + depth*LMP_PER_DEPTH.
+                LMP_BASE: 3,
+                LMP_PER_DEPTH: 4,
+
+                // Iterative deepening.
+                ASPIRATION: 250,     // initial window half-width
+                SOFT_LIMIT: 0.45     // fraction of the budget past which no new iteration starts
+            };
+            const P = Object.assign({}, DEFAULTS, cfg.tune || {});
+
+            // Hoisted into locals: these sit in the innermost search loops.
+            const W_THREAT = P.W_THREAT, W_THREAT_OPP = P.W_THREAT_OPP;
+            const W_THREAT2 = P.W_THREAT2, W_THREAT2_OPP = P.W_THREAT2_OPP;
+            const W_MOB = P.W_MOB, PROX = P.PROX;
+            const RFP = P.RFP, FUTILITY = P.FUTILITY;
+            const QMAX = P.QMAX, Q_DELTA = P.Q_DELTA;
+            const NULL_MIN_DEPTH = P.NULL_MIN_DEPTH, NULL_R = P.NULL_R, NULL_DEEP = P.NULL_DEEP;
+            const LMR_MIN_DEPTH = P.LMR_MIN_DEPTH, LMR_MIN_MOVES = P.LMR_MIN_MOVES;
+            const LMR_MORE = P.LMR_MORE, LMR_DEEP = P.LMR_DEEP;
+            const LMP_BASE = P.LMP_BASE, LMP_PER_DEPTH = P.LMP_PER_DEPTH;
+            const ASPIRATION = P.ASPIRATION, SOFT_LIMIT = P.SOFT_LIMIT;
+
+            const ABORT = { reason: 'search deadline' };
+
+            // ---- Geometry, precomputed once --------------------------------
+            const DIRS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [-1, 1], [1, -1], [1, 1]];
+            const JUMPS = [[-2, -1], [-2, 1], [-1, -2], [-1, 2], [1, -2], [1, 2], [2, -1], [2, 1]];
+            const RAYS = [], KING_T = [], KNIGHT_T = [];
+            for (let sq = 0; sq < NSQ; sq++) {
+                const r = (sq / SIZE) | 0, c = sq % SIZE;
+                const perDir = [], adjacent = [];
+                for (const [dr, dc] of DIRS) {
+                    const line = [];
+                    let nr = r + dr, nc = c + dc;
+                    while (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE) {
+                        line.push(nr * SIZE + nc);
+                        nr += dr; nc += dc;
+                    }
+                    if (line.length) adjacent.push(line[0]);
+                    perDir.push(Int8Array.from(line));
+                }
+                const hops = [];
+                for (const [dr, dc] of JUMPS) {
+                    const nr = r + dr, nc = c + dc;
+                    if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE) hops.push(nr * SIZE + nc);
+                }
+                RAYS.push(perDir);
+                KING_T.push(Int8Array.from(adjacent));
+                KNIGHT_T.push(Int8Array.from(hops));
+            }
+
+            // Moves-to-reach on an otherwise empty board, per piece type, by
+            // BFS. A much better "how close am I to that piece" proxy than
+            // raw distance: it knows a knight's reach, and that a bishop can
+            // never touch the other colour's squares at all (63 = never).
+            const UNREACHABLE = 63;
+            const DIST = new Int8Array(5 * NSQ * NSQ).fill(UNREACHABLE);
+            for (let t = 0; t < 5; t++) {
+                const letter = TYPE_LETTER[t];
+                const adj = [];
+                for (let sq = 0; sq < NSQ; sq++) {
+                    const reach = [];
+                    if (letter === 'K') for (const s of KING_T[sq]) reach.push(s);
+                    else if (letter === 'N') for (const s of KNIGHT_T[sq]) reach.push(s);
+                    else {
+                        const lo = letter === 'B' ? 4 : 0, hi = letter === 'R' ? 4 : 8;
+                        for (let d = lo; d < hi; d++) for (const s of RAYS[sq][d]) reach.push(s);
+                    }
+                    adj.push(reach);
+                }
+                for (let src = 0; src < NSQ; src++) {
+                    const base = (t * NSQ + src) * NSQ;
+                    DIST[base + src] = 0;
+                    const queue = [src];
+                    for (let qi = 0; qi < queue.length; qi++) {
+                        const cur = queue[qi], nd = DIST[base + cur] + 1;
+                        for (const nxt of adj[cur]) {
+                            if (DIST[base + nxt] === UNREACHABLE) { DIST[base + nxt] = nd; queue.push(nxt); }
+                        }
+                    }
+                }
+            }
+
+            // Two independent 32-bit Zobrist key sets: the first indexes the
+            // transposition table, the second verifies the entry against
+            // collisions. Banked points are hashed as well - the same piece
+            // placement with different scores is a genuinely different
+            // position in this game, and the old engine's TT confused them.
+            function rnd(n) {
+                const a = new Int32Array(n);
+                for (let i = 0; i < n; i++) a[i] = (Math.random() * 0x100000000) | 0;
+                return a;
+            }
+            const ZP1 = rnd(2 * 5 * NSQ), ZP2 = rnd(2 * 5 * NSQ);   // [side][type][square]
+            const ZKF1 = rnd(NSQ), ZKF2 = rnd(NSQ);   // ko: square of the displaced piece
+            const ZKT1 = rnd(NSQ), ZKT2 = rnd(NSQ);   // ko: square it may not return to
+            const ZS1 = rnd(2 * 64), ZS2 = rnd(2 * 64);             // banked points per side
+            const ZV1 = rnd(NSQ), ZV2 = rnd(NSQ);                   // void per square
+            const ZTURN1 = (Math.random() * 0x100000000) | 0;
+            const ZTURN2 = (Math.random() * 0x100000000) | 0;
+
+            // ---- Position --------------------------------------------------
+            // Pieces are never added or removed (this game has no captures),
+            // so a fixed piece list is all a move needs: a normal move moves
+            // one piece, a swap exchanges the squares of two.
+            const pcType = new Int8Array(MAXPC);
+            const pcSide = new Int8Array(MAXPC);      // 0 = white, 1 = black
+            const pcVal = new Int8Array(MAXPC);       // points for taking WITH this piece
+            const pcSq = new Int8Array(MAXPC);
+            const sqPc = new Int8Array(NSQ);          // piece id on a square, -1 if empty
+            const sqVoid = new Uint8Array(NSQ);        // voids mode: 1 if square is a void
+            const pcList = [new Int8Array(MAXPC), new Int8Array(MAXPC)];
+            const pcN = new Int32Array(2);
+            const pts = new Int32Array(2);            // banked points per side
+            let side = 0;                             // side to move
+            let ko = -1;                              // from | to<<6 of the banned swap-back
+            let z1 = 0, z2 = 0;
+
+            // ---- Search state ----------------------------------------------
+            const TTBITS = 17;
+            const TTSIZE = 1 << TTBITS, TTMASK = TTSIZE - 1;
+            const ttKey = new Int32Array(TTSIZE);     // verification key (second hash)
+            const ttScore = new Int32Array(TTSIZE);
+            const ttMoveT = new Int32Array(TTSIZE);
+            const ttDepth = new Int8Array(TTSIZE);
+            const ttFlag = new Int8Array(TTSIZE);     // 0 exact, 1 lower bound, -1 upper bound
+            const ttGen = new Uint8Array(TTSIZE);     // 0 = never written
+            let generation = 0;
+
+            const moves = new Int32Array(MAXPLY * MAXMOVES);
+            const moveScores = new Int32Array(MAXPLY * MAXMOVES);
+            const killers = new Int32Array(MAXPLY * 2);
+            const history = new Int32Array(2 * 4096);   // [side][move]
+            const counters = new Int32Array(2 * 4096);  // reply that refuted a given move
+            const prevMoveAt = new Int32Array(MAXPLY);
+            const path = new Int32Array(MAXPLY);        // position keys along the current line
+            const swapMask = new Int32Array(2);   // pieces that have a swap available
+            const mobility = new Int32Array(2);
+            const rootMv = new Int32Array(MAXMOVES);
+            const rootSc = new Int32Array(MAXMOVES);
+
+            let quietRun = 0;        // plies since the last swap
+            let nullCount = 0;       // null moves on the current line
+            let bestMove = -1;
+            let deadline = 0;        // 0 = no time limit
+            let softDeadline = 0;    // don't start another iteration past this
+            let nodes = 0;
+            let rootScore = 0;
+            let seldepth = 0;
+            let completedDepth = 0;
+
+            function zp1(pc, sq) { return ZP1[(pcSide[pc] * 5 + pcType[pc]) * NSQ + sq]; }
+            function zp2(pc, sq) { return ZP2[(pcSide[pc] * 5 + pcType[pc]) * NSQ + sq]; }
+
+            function rehash() {
+                z1 = 0; z2 = 0;
+                for (let sd = 0; sd < 2; sd++) {
+                    for (let i = 0; i < pcN[sd]; i++) {
+                        const pc = pcList[sd][i], sq = pcSq[pc];
+                        z1 ^= zp1(pc, sq); z2 ^= zp2(pc, sq);
+                    }
+                    const p = pts[sd] & 63;
+                    z1 ^= ZS1[sd * 64 + p]; z2 ^= ZS2[sd * 64 + p];
+                }
+                if (VOIDS) {
+                    for (let sq = 0; sq < NSQ; sq++) {
+                        if (sqVoid[sq]) { z1 ^= ZV1[sq]; z2 ^= ZV2[sq]; }
+                    }
+                }
+                if (ko >= 0) {
+                    z1 ^= ZKF1[ko & 63] ^ ZKT1[ko >> 6];
+                    z2 ^= ZKF2[ko & 63] ^ ZKT2[ko >> 6];
+                }
+                if (side === 1) { z1 ^= ZTURN1; z2 ^= ZTURN2; }
+            }
+
+            // Copy a UI position (object board + lastSwap + live scores) in.
+            function load(objBoard, objLastSwap, sideToMove, scoreWhite, scoreBlack, objVoids) {
+                sqPc.fill(-1);
+                sqVoid.fill(0);
+                if (VOIDS && objVoids) {
+                    for (const key in objVoids) {
+                        if (objVoids[key]) {
+                            const parts = key.split(',');
+                            sqVoid[parseInt(parts[0]) * SIZE + parseInt(parts[1])] = 1;
+                        }
+                    }
+                }
+                pcN[0] = 0; pcN[1] = 0;
+                let id = 0;
+                for (let row = 0; row < SIZE; row++) {
+                    for (let col = 0; col < SIZE; col++) {
+                        const piece = objBoard[row][col];
+                        if (!piece || id >= MAXPC) continue;
+                        const sq = row * SIZE + col;
+                        const sd = piece.color === 'white' ? 0 : 1;
+                        pcType[id] = TYPE_INDEX[piece.type];
+                        pcSide[id] = sd;
+                        pcVal[id] = cfg.moverValues[piece.type];
+                        pcSq[id] = sq;
+                        sqPc[sq] = id;
+                        pcList[sd][pcN[sd]++] = id;
+                        id++;
+                    }
+                }
+                side = sideToMove === 'white' ? 0 : 1;
+                pts[0] = scoreWhite; pts[1] = scoreBlack;
+                ko = -1;
+                if (objLastSwap) {
+                    const from = objLastSwap.swappedPiecePos.row * SIZE + objLastSwap.swappedPiecePos.col;
+                    const to = objLastSwap.originalPos.row * SIZE + objLastSwap.originalPos.col;
+                    ko = from | (to << 6);
+                }
+                rehash();
+            }
+
+            function decode(mv) {
+                const from = mv & 63, to = (mv >> 6) & 63;
+                return {
+                    from: { row: (from / SIZE) | 0, col: from % SIZE },
+                    to: { row: (to / SIZE) | 0, col: to % SIZE }
+                };
+            }
+
+            // Generate moves for `sd` into this ply's slice of `moves`.
+            // swapsOnly restricts them to swaps, for the quiescence search.
+            function gen(sd, off, swapsOnly) {
+                let n = 0;
+                const koFrom = ko >= 0 ? (ko & 63) : -1;
+                const koTo = ko >= 0 ? (ko >> 6) : -1;
+                const list = pcList[sd], count = pcN[sd];
+                const cap = MAXMOVES - 24;   // headroom for one more piece's moves
+                for (let i = 0; i < count; i++) {
+                    if (n > cap) break;      // can't happen at 5 pieces a side; don't corrupt the next ply if it ever does
+                    const pc = list[i], from = pcSq[pc], type = pcType[pc];
+                    const banned = from === koFrom ? koTo : -1;
+                    if (type === 0 || type === 4) {          // king / knight
+                        const targets = type === 0 ? KING_T[from] : KNIGHT_T[from];
+                        for (let j = 0; j < targets.length; j++) {
+                            const to = targets[j], occ = sqPc[to];
+                            if (occ >= 0 ? pcSide[occ] === sd : (swapsOnly || sqVoid[to])) continue;
+                            if (to === banned) continue;
+                            moves[off + n++] = from | (to << 6);
+                        }
+                    } else {                                  // sliders
+                        const lo = type === 3 ? 4 : 0;        // bishop: diagonals only
+                        const hi = type === 2 ? 4 : 8;        // rook: orthogonals only
+                        for (let dir = lo; dir < hi; dir++) {
+                            const ray = RAYS[from][dir];
+                            for (let j = 0; j < ray.length; j++) {
+                                const to = ray[j], occ = sqPc[to];
+                                if (occ >= 0) {
+                                    if (pcSide[occ] !== sd && to !== banned) moves[off + n++] = from | (to << 6);
+                                    break;
+                                }
+                                if (!swapsOnly && !sqVoid[to] && to !== banned) moves[off + n++] = from | (to << 6);
+                            }
+                        }
+                    }
+                }
+                return n;
+            }
+
+            function make(mv) {
+                const from = mv & 63, to = (mv >> 6) & 63;
+                const pc = sqPc[from], target = sqPc[to];
+                const sd = pcSide[pc];
+
+                if (ko >= 0) {
+                    z1 ^= ZKF1[ko & 63] ^ ZKT1[ko >> 6];
+                    z2 ^= ZKF2[ko & 63] ^ ZKT2[ko >> 6];
+                }
+                z1 ^= zp1(pc, from) ^ zp1(pc, to);
+                z2 ^= zp2(pc, from) ^ zp2(pc, to);
+                sqPc[to] = pc; pcSq[pc] = to;
+
+                if (target >= 0) {
+                    z1 ^= zp1(target, to) ^ zp1(target, from);
+                    z2 ^= zp2(target, to) ^ zp2(target, from);
+                    sqPc[from] = target; pcSq[target] = from;
+
+                    const gain = pcVal[pc];
+                    const before = pts[sd] & 63, after = (pts[sd] + gain) & 63;
+                    z1 ^= ZS1[sd * 64 + before] ^ ZS1[sd * 64 + after];
+                    z2 ^= ZS2[sd * 64 + before] ^ ZS2[sd * 64 + after];
+                    pts[sd] += gain;
+                    ko = from | (to << 6);
+                    z1 ^= ZKF1[from] ^ ZKT1[to];
+                    z2 ^= ZKF2[from] ^ ZKT2[to];
+                } else {
+                    sqPc[from] = -1;
+                    if (VOIDS) { sqVoid[from] = 1; z1 ^= ZV1[from]; z2 ^= ZV2[from]; }
+                    ko = -1;
+                }
+
+                side ^= 1;
+                z1 ^= ZTURN1; z2 ^= ZTURN2;
+            }
+
+            function unmake(mv, savedKo, savedZ1, savedZ2) {
+                const from = mv & 63, to = (mv >> 6) & 63;
+                const pc = sqPc[to], target = sqPc[from];   // target >= 0 iff it was a swap
+                sqPc[from] = pc; pcSq[pc] = from;
+                if (target >= 0) {
+                    sqPc[to] = target; pcSq[target] = to;
+                    pts[pcSide[pc]] -= pcVal[pc];
+                } else {
+                    sqPc[to] = -1;
+                    if (VOIDS) sqVoid[from] = 0;
+                }
+                ko = savedKo; z1 = savedZ1; z2 = savedZ2; side ^= 1;
+            }
+
+            // Static evaluation from `sd`'s point of view. Banked points
+            // dominate; the rest is a gradient that steers the search toward
+            // scoring before it can see the swap itself.
+            function evaluate(sd) {
+                const opp = sd ^ 1;
+
+                for (let s = 0; s < 2; s++) {
+                    const list = pcList[s], count = pcN[s];
+                    let swappers = 0, mob = 0;
+                    for (let i = 0; i < count; i++) {
+                        const pc = list[i], from = pcSq[pc], type = pcType[pc];
+                        if (type === 0 || type === 4) {
+                            const targets = type === 0 ? KING_T[from] : KNIGHT_T[from];
+                            for (let j = 0; j < targets.length; j++) {
+                                const tgt = targets[j], occ = sqPc[tgt];
+                                if (occ < 0) { if (!sqVoid[tgt]) mob++; }
+                                else if (pcSide[occ] !== s) {
+                                    swappers |= 1 << pc; mob++;
+                                }
+                            }
+                        } else {
+                            const lo = type === 3 ? 4 : 0, hi = type === 2 ? 4 : 8;
+                            for (let dir = lo; dir < hi; dir++) {
+                                const ray = RAYS[from][dir];
+                                for (let j = 0; j < ray.length; j++) {
+                                    const rsq = ray[j], occ = sqPc[rsq];
+                                    if (occ < 0) { if (!sqVoid[rsq]) mob++; continue; }
+                                    if (pcSide[occ] !== s) {
+                                        swappers |= 1 << pc; mob++;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    swapMask[s] = swappers; mobility[s] = mob;
+                }
+
+                let bestMine = 0, sumMine = 0, bestTheirs = 0, sumTheirs = 0;
+                const mineSwap = swapMask[sd], theirSwap = swapMask[opp];
+                for (let i = 0; i < pcN[sd]; i++) {
+                    const pc = pcList[sd][i];
+                    if (mineSwap & (1 << pc)) {
+                        const v = pcVal[pc];
+                        sumMine += v; if (v > bestMine) bestMine = v;
+                    }
+                }
+                for (let i = 0; i < pcN[opp]; i++) {
+                    const pc = pcList[opp][i];
+                    if (theirSwap & (1 << pc)) {
+                        const v = pcVal[pc];
+                        sumTheirs += v; if (v > bestTheirs) bestTheirs = v;
+                    }
+                }
+
+                let proxMine = 0, proxTheirs = 0;
+                for (let i = 0; i < pcN[sd]; i++) {
+                    const m = pcList[sd][i], base = (pcType[m] * NSQ + pcSq[m]) * NSQ;
+                    let near = UNREACHABLE;
+                    for (let j = 0; j < pcN[opp]; j++) {
+                        const d = DIST[base + pcSq[pcList[opp][j]]];
+                        if (d < near) near = d;
+                    }
+                    if (near < PROX.length) proxMine += pcVal[m] * PROX[near];
+                }
+                for (let i = 0; i < pcN[opp]; i++) {
+                    const m = pcList[opp][i], base = (pcType[m] * NSQ + pcSq[m]) * NSQ;
+                    let near = UNREACHABLE;
+                    for (let j = 0; j < pcN[sd]; j++) {
+                        const d = DIST[base + pcSq[pcList[sd][j]]];
+                        if (d < near) near = d;
+                    }
+                    if (near < PROX.length) proxTheirs += pcVal[m] * PROX[near];
+                }
+
+                return (pts[sd] - pts[opp]) * PT
+                    + bestMine * W_THREAT - bestTheirs * W_THREAT_OPP
+                    + (sumMine - bestMine) * W_THREAT2 - (sumTheirs - bestTheirs) * W_THREAT2_OPP
+                    + proxMine - proxTheirs
+                    + (mobility[sd] - mobility[opp]) * W_MOB;
+            }
+
+            // A position can only repeat across quiet moves: every swap
+            // changes a score, and scores are part of the hash. So the scan
+            // never needs to look further back than the last swap.
+            function isRepetition(ply) {
+                const limit = ply - quietRun;
+                for (let i = ply - 2; i >= limit && i >= 0; i -= 2) {
+                    if (path[i] === z1) return true;
+                }
+                return false;
+            }
+
+            function recordCutoff(sd, mv, ply, depth, prevMove) {
+                const base = sd * 4096;
+                history[base + mv] += depth * depth;
+                if (history[base + mv] > 1 << 20) {
+                    for (let i = 0; i < history.length; i++) history[i] >>= 1;
+                }
+                const k = ply * 2;
+                if (killers[k] !== mv) { killers[k + 1] = killers[k]; killers[k] = mv; }
+                if (prevMove) counters[base + prevMove] = mv;
+            }
+
+            // TT move, then swaps by what they actually score (landed-on
+            // value plus the mover's bonus), then killers and the
+            // counter-move, then history.
+            function scoreMoves(off, n, sd, ttMove, ply, prevMove) {
+                const base = sd * 4096;
+                const k0 = killers[ply * 2], k1 = killers[ply * 2 + 1];
+                const counter = prevMove ? counters[base + prevMove] : 0;
+                for (let i = 0; i < n; i++) {
+                    const mv = moves[off + i];
+                    let score;
+                    if (mv === ttMove) score = 1 << 28;
+                    else {
+                        const target = sqPc[(mv >> 6) & 63];
+                        if (target >= 0) {
+                            score = 2000000 + pcVal[sqPc[mv & 63]] * 1000;
+                        }
+                        else if (mv === k0) score = 1500000;
+                        else if (mv === k1) score = 1400000;
+                        else if (mv === counter) score = 1300000;
+                        else score = Math.min(history[base + mv], 1000000);
+                    }
+                    moveScores[off + i] = score;
+                }
+            }
+
+            // Selection sort one move at a time, so a cutoff on the first
+            // move never pays for ordering the rest of the list.
+            function pick(off, n, i) {
+                let best = i;
+                for (let j = i + 1; j < n; j++) {
+                    if (moveScores[off + j] > moveScores[off + best]) best = j;
+                }
+                if (best !== i) {
+                    const mv = moves[off + i]; moves[off + i] = moves[off + best]; moves[off + best] = mv;
+                    const sc = moveScores[off + i]; moveScores[off + i] = moveScores[off + best]; moveScores[off + best] = sc;
+                }
+                return moves[off + i];
+            }
+
+            // Quiescence: swaps only. A swap is this game's capture - it
+            // moves the banked-points term, which dominates the evaluation -
+            // so a search that stops on a quiet leaf one move before a queen
+            // swap reports a score that has nothing to do with the position.
+            function quiesce(alpha, beta, ply, qDepth) {
+                if ((++nodes & 1023) === 0 && deadline && Date.now() > deadline) throw ABORT;
+                const sd = side;
+                if (ply > seldepth) seldepth = ply;
+                // Only the side that just moved can have reached the target.
+                if (pts[sd ^ 1] >= winLimit) return -(MATE - ply);
+
+                const stand = evaluate(sd);
+                if (qDepth >= QMAX || ply >= MAXPLY - 2) return stand;
+                if (stand >= beta) return stand;
+                if (stand > alpha) alpha = stand;
+
+                const off = ply * MAXMOVES;
+                const n = gen(sd, off, true);
+                if (n === 0) return stand;
+                for (let i = 0; i < n; i++) {
+                    const mv = moves[off + i];
+                    moveScores[off + i] = pcVal[sqPc[mv & 63]];
+                }
+
+                let best = stand;
+                for (let i = 0; i < n; i++) {
+                    const mv = pick(off, n, i);
+                    const gain = pcVal[sqPc[mv & 63]] * PT;
+                    // Picked in descending value order, so once the best
+                    // remaining swap cannot reach alpha, none of them can.
+                    if (stand + gain + Q_DELTA < alpha) break;
+
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedQuiet = quietRun;
+                    make(mv); quietRun = 0;
+                    const score = -quiesce(-beta, -alpha, ply + 1, qDepth + 1);
+                    unmake(mv, savedKo, savedZ1, savedZ2); quietRun = savedQuiet;
+
+                    if (score > best) best = score;
+                    if (score > alpha) alpha = score;
+                    if (alpha >= beta) break;
+                }
+                return best;
+            }
+
+            function search(depth, alpha, beta, ply, canNull) {
+                if ((++nodes & 1023) === 0 && deadline && Date.now() > deadline) throw ABORT;
+
+                const sd = side;
+                if (pts[sd ^ 1] >= winLimit) return -(MATE - ply);
+                if (ply >= MAXPLY - 2) return evaluate(sd);
+
+                path[ply] = z1;
+                if (ply > 0 && nullCount === 0 && isRepetition(ply)) return 0;
+
+                const isPV = beta - alpha > 1;
+                const idx = z1 & TTMASK;
+                let ttMove = 0;
+                if (ttGen[idx] !== 0 && ttKey[idx] === z2) {
+                    ttMove = ttMoveT[idx];
+                    if (!isPV && ttDepth[idx] >= depth) {
+                        let score = ttScore[idx];
+                        if (score > MATE_TH) score -= ply;
+                        else if (score < -MATE_TH) score += ply;
+                        const flag = ttFlag[idx];
+                        if (flag === 0 || (flag > 0 && score >= beta) || (flag < 0 && score <= alpha)) return score;
+                    }
+                }
+
+                if (depth <= 0) return quiesce(alpha, beta, ply, 0);
+
+                const stand = evaluate(sd);
+
+                // Reverse futility: so far ahead that conceding `depth` moves
+                // of play would still leave us above beta.
+                if (!isPV && depth < RFP.length && stand - RFP[depth] >= beta) return stand;
+
+                // Null move: hand the opponent a free move. If we are still
+                // above beta after that, this node does not deserve a full
+                // search. Nothing can be lost from the board in this game, so
+                // zugzwang is mild.
+                if (!isPV && canNull && depth >= NULL_MIN_DEPTH && stand >= beta) {
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2;
+                    const R = NULL_R + (depth >= NULL_DEEP ? 1 : 0);
+                    side ^= 1; z1 ^= ZTURN1; z2 ^= ZTURN2; nullCount++;
+                    const score = -search(depth - 1 - R, -beta, -beta + 1, ply + 1, false);
+                    nullCount--; side ^= 1; ko = savedKo; z1 = savedZ1; z2 = savedZ2;
+                    if (score >= beta) return score >= MATE_TH ? beta : score;
+                }
+
+                const off = ply * MAXMOVES;
+                const n = gen(sd, off, false);
+                if (n === 0) return VOIDS ? -(MATE - ply) : stand;
+                scoreMoves(off, n, sd, ttMove, ply, ply > 0 ? prevMoveAt[ply - 1] : 0);
+
+                const origAlpha = alpha;
+                const futile = !isPV && depth < FUTILITY.length && stand + FUTILITY[depth] <= alpha;
+                let bestScore = -INF, bestLocal = 0, searched = 0;
+
+                for (let i = 0; i < n; i++) {
+                    const mv = pick(off, n, i);
+                    const isSwap = sqPc[(mv >> 6) & 63] >= 0;
+
+                    if (searched > 0 && !isSwap && bestScore > -MATE_TH) {
+                        if (futile) continue;
+                        // Late move pruning: far down a quiet list at a node
+                        // that already looks bad.
+                        if (!isPV && depth <= 3 && searched >= LMP_BASE + depth * LMP_PER_DEPTH) continue;
+                    }
+
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedQuiet = quietRun;
+                    prevMoveAt[ply] = mv;
+                    make(mv);
+                    quietRun = isSwap ? 0 : savedQuiet + 1;
+
+                    let r = 0;
+                    if (depth >= LMR_MIN_DEPTH && searched >= LMR_MIN_MOVES && !isSwap) {
+                        r = 1 + (searched >= LMR_MORE ? 1 : 0) + (depth >= LMR_DEEP ? 1 : 0);
+                        if (isPV) r--;
+                        if (r >= depth) r = depth - 1;
+                        if (r < 0) r = 0;
+                    }
+
+                    let score;
+                    if (searched === 0) {
+                        score = -search(depth - 1, -beta, -alpha, ply + 1, true);
+                    } else {
+                        score = -search(depth - 1 - r, -alpha - 1, -alpha, ply + 1, true);
+                        if (score > alpha && r > 0) score = -search(depth - 1, -alpha - 1, -alpha, ply + 1, true);
+                        if (score > alpha && score < beta) score = -search(depth - 1, -beta, -alpha, ply + 1, true);
+                    }
+
+                    unmake(mv, savedKo, savedZ1, savedZ2);
+                    quietRun = savedQuiet;
+                    searched++;
+
+                    if (score > bestScore) { bestScore = score; bestLocal = mv; }
+                    if (score > alpha) alpha = score;
+                    if (alpha >= beta) {
+                        if (!isSwap) recordCutoff(sd, mv, ply, depth, ply > 0 ? prevMoveAt[ply - 1] : 0);
+                        break;
+                    }
+                }
+
+                if (searched === 0) return stand;   // every move was pruned
+
+                let stored = bestScore;
+                if (stored > MATE_TH) stored += ply;
+                else if (stored < -MATE_TH) stored -= ply;
+                if (ttGen[idx] !== generation || ttDepth[idx] <= depth) {
+                    ttKey[idx] = z2;
+                    ttScore[idx] = stored;
+                    ttMoveT[idx] = bestLocal;
+                    ttDepth[idx] = depth;
+                    ttFlag[idx] = bestScore <= origAlpha ? -1 : (bestScore >= beta ? 1 : 0);
+                    ttGen[idx] = generation;
+                }
+                return bestScore;
+            }
+
+            // Root move list.
+            function genRoot() {
+                const n = gen(side, 0, false);
+                let out = 0;
+                for (let i = 0; i < n; i++) {
+                    const mv = moves[i];
+                    rootMv[out] = mv;
+                    rootSc[out] = -INF;
+                    out++;
+                }
+                return out;
+            }
+
+            function searchRoot(depth, alpha, beta, rootN) {
+                let best = -INF;
+                for (let i = 0; i < rootN; i++) rootSc[i] = -INF;
+                quietRun = 0;
+                path[0] = z1;
+
+                for (let i = 0; i < rootN; i++) {
+                    const mv = rootMv[i];
+                    const isSwap = sqPc[(mv >> 6) & 63] >= 0;
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2;
+                    prevMoveAt[0] = mv;
+                    make(mv);
+                    quietRun = isSwap ? 0 : 1;
+
+                    let score;
+                    if (i === 0) {
+                        score = -search(depth - 1, -beta, -alpha, 1, true);
+                    } else {
+                        score = -search(depth - 1, -alpha - 1, -alpha, 1, true);
+                        if (score > alpha && score < beta) score = -search(depth - 1, -beta, -alpha, 1, true);
+                    }
+
+                    unmake(mv, savedKo, savedZ1, savedZ2);
+                    quietRun = 0;
+                    rootSc[i] = score;
+
+                    if (score > best) { best = score; bestMove = mv; }
+                    if (score > alpha) alpha = score;
+                    if (alpha >= beta) break;   // fail high; the caller widens and retries
+                }
+                return best;
+            }
+
+            // Re-order root moves by the scores from the iteration just
+            // finished, so the next one opens with the likeliest best move.
+            function sortRoot(rootN) {
+                for (let i = 1; i < rootN; i++) {
+                    const mv = rootMv[i], sc = rootSc[i];
+                    let j = i - 1;
+                    while (j >= 0 && rootSc[j] < sc) { rootMv[j + 1] = rootMv[j]; rootSc[j + 1] = rootSc[j]; j--; }
+                    rootMv[j + 1] = mv; rootSc[j + 1] = sc;
+                }
+            }
+
+            // Iterative deepening with aspiration windows. Each iteration
+            // seeds the next one's move ordering and search window, which is
+            // what makes the deeper iterations affordable at all.
+            function iterate(maxDepth) {
+                const rootN = genRoot();
+                if (rootN === 0) return -1;
+                bestMove = rootMv[0];
+                completedDepth = 0;
+                if (rootN === 1) return bestMove;
+
+                let previous = 0;
+                for (let depth = 1; depth <= maxDepth; depth++) {
+                    if (depth > 2 && softDeadline && Date.now() > softDeadline) break;
+
+                    let alpha = -INF, beta = INF, delta = ASPIRATION, score;
+                    if (depth >= 4) { alpha = previous - delta; beta = previous + delta; }
+                    for (;;) {
+                        score = searchRoot(depth, alpha, beta, rootN);
+                        if (score <= alpha) {
+                            delta *= 3;
+                            beta = ((alpha + beta) / 2) | 0;
+                            alpha = score - delta < -INF ? -INF : score - delta;
+                        } else if (score >= beta) {
+                            delta *= 3;
+                            beta = score + delta > INF ? INF : score + delta;
+                        } else break;
+                    }
+
+                    previous = score;
+                    rootScore = score;
+                    completedDepth = depth;
+                    sortRoot(rootN);
+                    // A forced win will not get better with depth. A forced
+                    // loss is not treated the same way: reductions and null
+                    // moves can manufacture one, so keep searching for a
+                    // defence rather than resigning to a search artifact.
+                    if (score >= MATE_TH) break;
+                }
+                return bestMove;
+            }
+
+            // Public entry point. Pass timeMs > 0 for a time-budgeted search,
+            // otherwise it runs to `depth`.
+            //
+            // The transposition table deliberately survives between calls:
+            // scores are side-to-move relative and keys include the banked
+            // points, so entries stay valid as the game goes on.
+            function think(objBoard, objLastSwap, aiColor, depth, timeMs, scoreWhite, scoreBlack, winScore, objVoids) {
+                const wl = winScore || cfg.winScore;
+                if (wl !== winLimit) { winLimit = wl; ttGen.fill(0); }
+                load(objBoard, objLastSwap, aiColor, scoreWhite || 0, scoreBlack || 0, objVoids);
+                generation = (generation % 255) + 1;
+                killers.fill(0);
+                for (let i = 0; i < history.length; i++) history[i] >>= 1;   // age, don't erase
+                nodes = 0; seldepth = 0; nullCount = 0; quietRun = 0; bestMove = -1;
+
+                const start = Date.now();
+                deadline = timeMs > 0 ? start + timeMs : 0;
+                softDeadline = timeMs > 0 ? start + timeMs * SOFT_LIMIT : 0;
+
+                let mv;
+                try {
+                    mv = iterate(timeMs > 0 ? MAXPLY - 4 : depth);
+                } catch (err) {
+                    if (err !== ABORT) { deadline = 0; softDeadline = 0; throw err; }
+                    mv = bestMove;   // best fully-searched root move so far
+                }
+                deadline = 0; softDeadline = 0;
+                return mv === undefined || mv < 0 ? null : decode(mv);
+            }
+
+            // Count leaf nodes of the raw move tree. This is the engine's
+            // self-check: the count has to match the game's own move
+            // generator, and with verifyHash on, the incrementally updated
+            // Zobrist keys have to match a hash computed from scratch at
+            // every node. Both are silent strength killers when wrong.
+            function perftRec(depth, ply, verifyHash) {
+                if (verifyHash) {
+                    const incr1 = z1, incr2 = z2;
+                    rehash();
+                    if (z1 !== incr1 || z2 !== incr2) throw new Error('incremental hash diverged at ply ' + ply);
+                }
+                const off = ply * MAXMOVES;
+                const n = gen(side, off, false);
+                if (depth === 1) return n;
+                let total = 0;
+                for (let i = 0; i < n; i++) {
+                    const mv = moves[off + i];
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2;
+                    make(mv);
+                    total += perftRec(depth - 1, ply + 1, verifyHash);
+                    unmake(mv, savedKo, savedZ1, savedZ2);
+                }
+                return total;
+            }
+
+            return {
+                think,
+                stats: () => ({ nodes, depth: completedDepth, seldepth, score: rootScore }),
+                // The parameters this engine was built with, and the
+                // defaults it started from - test/selfplay.js reads these.
+                params: () => Object.assign({}, P),
+                defaults: () => JSON.parse(JSON.stringify(DEFAULTS)),
+                clear: () => { ttGen.fill(0); history.fill(0); counters.fill(0); killers.fill(0); },
+                perft(objBoard, objLastSwap, sideToMove, depth, verifyHash) {
+                    load(objBoard, objLastSwap, sideToMove, 0, 0);
+                    return depth <= 0 ? 1 : perftRec(depth, 0, !!verifyHash);
+                }
+            };
+        }
+
+        // Rule constants the engine needs; also shipped to the worker.
+        const ENGINE_CONFIG = {
+            boardSize: BOARD_SIZE,
+            moverValues: MOVER_VALUES,
+            winScore: WIN_SCORE
+        };
+        const ENGINE = buildEngine(ENGINE_CONFIG);
+
+        // Search the live position. timeMs > 0 gives a time budget, otherwise
+        // it is a fixed-depth search.
+        function runSearch(aiColor, depth, timeMs, scoreWhite = 0, scoreBlack = 0, winScore = 0) {
+            return ENGINE.think(board, lastSwap, aiColor, depth, timeMs, scoreWhite, scoreBlack, winScore);
+        }
+
+        function findBestMove(aiColor, depth) {
+            return runSearch(aiColor, depth, 0, scores.white, scores.black);
+        }
+
+        // The AI worker is this same engine: stringify buildEngine, hand it
+        // the rule constants, and let it answer search requests. Nothing is
+        // duplicated, so the worker can never drift from the main thread.
+        // `tune` overrides the engine's tunable parameters for this worker
+        // only; the game never passes it, test/selfplay.js does.
+        function buildAIWorkerSource(tune, engineCfg) {
+            const baseCfg = engineCfg || ENGINE_CONFIG;
+            const cfg = tune ? Object.assign({}, baseCfg, { tune: tune }) : baseCfg;
+            return buildEngine.toString() + `
+const ENGINE = buildEngine(${JSON.stringify(cfg)});
+self.onmessage = function(e) {
+    const move = ENGINE.think(e.data.board, e.data.lastSwap, e.data.aiColor,
+        e.data.depth || 4, e.data.timeMs || 0,
+        e.data.scoreWhite || 0, e.data.scoreBlack || 0, e.data.winScore || 0,
+        e.data.objVoids || null);
+    self.postMessage({ requestId: e.data.requestId, move: move });
+};`;
+        }
+
+        function createAIWorker() {
+            try {
+                const blob = new Blob([buildAIWorkerSource(null)], { type: 'application/javascript' });
+                const workerUrl = URL.createObjectURL(blob);
+                const worker = new Worker(workerUrl);
+                URL.revokeObjectURL(workerUrl);
+                worker.onmessage = (e) => {
+                    if (e.data.requestId !== aiRequestId) return;
+                    if (gameOver || aiWatchPaused || !isAIControlledTurn()) return;
+                    const aiColor = gameMode === AI_WATCH_MODE
+                        ? currentTurn
+                        : (playerColor === 'white' ? 'black' : 'white');
+                    applyAIMove(e.data.move, aiColor);
+                };
+                return worker;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function applyAIMove(move, aiColor) {
+            if (gameOver || currentTurn !== aiColor) return;
+            if (!move) {
+                // No valid moves - skip turn (shouldn't happen normally)
+                currentTurn = playerColor;
+                resetTurnTimer();
+                updateUI();
+                renderBoard();
+                return;
+            }
+            makeMove(move.from.row, move.from.col, move.to.row, move.to.col);
+        }
+
+        // Smart AI picks the best move using minimax (off the main thread when
+        // possible). cfg is an AI_MODES entry: { depth } or { timeMs }.
+        function makeSmartAIMove(cfg) {
+            if (gameOver || aiWatchPaused || !isAIControlledTurn()) return;
+            const aiColor = gameMode === AI_WATCH_MODE
+                ? currentTurn
+                : (playerColor === 'white' ? 'black' : 'white');
+            if (currentTurn !== aiColor) return;
+
+            if (aiWorker) {
+                aiRequestId++;
+                const msg = {
+                    requestId: aiRequestId,
+                    board: board,
+                    lastSwap: lastSwap,
+                    aiColor: aiColor,
+                    depth: cfg.depth || 0,
+                    timeMs: cfg.timeMs || 0,
+                    scoreWhite: scores.white,
+                    scoreBlack: scores.black,
+                    winScore: WIN_SCORE
+                };
+                aiWorker.postMessage(msg);
+            } else {
+                applyAIMove(runSearch(aiColor, cfg.depth || 4, cfg.timeMs || 0,
+                    scores.white, scores.black, WIN_SCORE), aiColor);
+            }
+        }
+
+        // Show game config screen
+
+        function startGame(mode) {
+            pendingMode = mode;
+            const base = mode;
+            const watching = base === 'aiwatch';
+            document.getElementById('modeSelect').classList.add('hidden');
+
+            // Set title based on mode
+            document.getElementById('configTitle').textContent =
+                base === 'pvp' ? 'Two Players' :
+                watching ? 'Watch AI vs AI' :
+                (AI_MODES[base] ? AI_MODES[base].title : 'Game Settings');
+
+            document.getElementById('turnTimeSection').style.display = watching ? 'none' : 'block';
+            document.getElementById('sideSection').style.display =
+                base === 'pvp' || watching ? 'none' : 'block';
+            document.getElementById('aiTimeSection').style.display =
+                watching || (AI_MODES[base] && AI_MODES[base].timeMs) ? 'block' : 'none';
+            document.getElementById('aiTimeTitle').textContent =
+                watching ? 'Time per Move' : 'AI Think Time';
+
+            // Reset selections to defaults
+            selectedTime = watching ? 0 : 60;
+            selectedAITime = watching ? AI_WATCH_DEFAULT_MS : 100;
+            selectedSide = 'random';
+            updateConfigButtons();
+
+            document.getElementById('gameConfig').classList.add('show');
+        }
+
+        function selectTime(time) {
+            selectedTime = time;
+            updateConfigButtons();
+        }
+
+        function selectAITime(ms) {
+            selectedAITime = ms;
+            updateConfigButtons();
+        }
+
+        function selectSide(side) {
+            selectedSide = side;
+            updateConfigButtons();
+        }
+
+        function updateConfigButtons() {
+            // Update time buttons
+            document.querySelectorAll('#timeOptions .config-btn').forEach(btn => {
+                btn.classList.toggle('selected', parseInt(btn.dataset.time) === selectedTime);
+            });
+            // Update AI think time buttons
+            document.querySelectorAll('#aiTimeOptions .config-btn').forEach(btn => {
+                btn.classList.toggle('selected', parseInt(btn.dataset.aitime) === selectedAITime);
+            });
+            // Update side buttons
+            document.querySelectorAll('#sideOptions .config-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.side === selectedSide);
+            });
+        }
+
+        function hideGameConfig() {
+            document.getElementById('gameConfig').classList.remove('show');
+            document.getElementById('modeSelect').classList.remove('hidden');
+            pendingMode = null;
+        }
+
+        function confirmGameStart() {
+            document.getElementById('gameConfig').classList.remove('show');
+            cancelPendingAIWork(true);
+            const base = pendingMode;
+            gameMode = base;
+            aiWatchPaused = false;
+
+            // Determine player color
+            if (base === 'pvp' || base === AI_WATCH_MODE) {
+                playerColor = 'white';
+            } else if (selectedSide === 'random') {
+                playerColor = Math.random() < 0.5 ? 'white' : 'black';
+            } else {
+                playerColor = selectedSide;
+            }
+
+            // Update panel labels
+            const whiteLabel = document.querySelector('.side-panel.white h3');
+            const blackLabel = document.querySelector('.side-panel.black h3');
+
+            if (base === 'pvp') {
+                whiteLabel.textContent = '⚪ White';
+                blackLabel.textContent = '⚫ Black';
+            } else if (base === AI_WATCH_MODE) {
+                whiteLabel.textContent = '⚪ White AI';
+                blackLabel.textContent = '⚫ Black AI';
+            } else {
+                const aiName = AI_MODES[base].name;
+
+                if (playerColor === 'white') {
+                    whiteLabel.textContent = '⚪ You';
+                    blackLabel.textContent = aiName;
+                } else {
+                    whiteLabel.textContent = aiName;
+                    blackLabel.textContent = '⚫ You';
+                }
+            }
+
+            // Set time (board size is fixed at 6x6)
+            boardSize = BOARD_SIZE;
+            whiteTime = selectedTime || Infinity;
+            blackTime = selectedTime || Infinity;
+
+            // Fully reset game state (a previous game may have ended via the menu)
+            if (aiMoveTimeout) {
+                clearTimeout(aiMoveTimeout);
+                aiMoveTimeout = null;
+            }
+            gameOver = false;
+            scores = { white: 0, black: 0 };
+            currentTurn = 'white';
+            selectedSquare = null;
+            validMoves = [];
+            lastSwap = null;
+            lastMove = null;
+            moveHistory = [];
+            boardHistory = [];
+            viewingIndex = -1;
+            document.getElementById('moveLog').innerHTML = '';
+            document.getElementById('viewingHistory').style.display = 'none';
+            document.getElementById('winnerBanner').classList.remove('show');
+            updateGameModeControls();
+            updateTimerDisplay('white', whiteTime);
+            updateTimerDisplay('black', blackTime);
+
+            initBoard();
+            // Record initial position for threefold repetition and history
+            positionCounts = new Map();
+            positionCounts.set(getBoardHash(), 1);
+            saveBoardState();
+            renderBoard();
+            updateUI();
+            startTimer();
+
+            if (isAIControlledTurn()) scheduleAIMove();
+
+            pendingMode = null;
+        }
+
+        // End game
+        function endGame(winner, reason = 'points') {
+            if (gameOver) return;
+            gameOver = true;
+            clearInterval(timerInterval);
+            if (aiMoveTimeout) {
+                clearTimeout(aiMoveTimeout);
+                aiMoveTimeout = null;
+            }
+            updateGameModeControls();
+
+            const banner = document.getElementById('winnerBanner');
+            const winnerText = document.getElementById('winnerText');
+
+            // Handle draw
+            if (winner === 'draw') {
+                const reasonText = reason === 'threefold' ? 'Threefold Repetition' : 'Draw';
+                winnerText.textContent = `🤝 ${reasonText}!`;
+                banner.classList.add('show');
+                return;
+            }
+
+            playWinSound();
+
+            let winnerName;
+            if (isAIMode(gameMode)) {
+                winnerName = winner === playerColor ? 'You' : AI_MODES[gameMode].shortName;
+            } else {
+                winnerName = winner === 'white' ? 'White' : 'Black';
+            }
+
+            const reasonText = reason === 'timeout' ? ' (timeout)' :
+                               reason === 'resign' ? ' (opponent resigned)' : '';
+            winnerText.textContent = `🏆 ${winnerName} Win${winnerName === 'You' ? '' : 's'}!${reasonText}`;
+
+            banner.classList.add('show');
+        }
+
+        // Reset game
+        function resetGame() {
+            cancelPendingAIWork(gameMode === AI_WATCH_MODE || isAIMode(gameMode));
+
+            gameOver = false;
+            aiWatchPaused = false;
+            scores = { white: 0, black: 0 };
+            currentTurn = 'white';
+            selectedSquare = null;
+            validMoves = [];
+
+            // Use configured time
+            const time = selectedTime || Infinity;
+            whiteTime = time;
+            blackTime = time;
+
+            lastSwap = null;
+            lastMove = null;
+
+            // Clear history
+            moveHistory = [];
+            boardHistory = [];
+            viewingIndex = -1;
+            positionCounts = new Map(); // Reset threefold repetition tracking
+            document.getElementById('moveLog').innerHTML = '';
+            document.getElementById('viewingHistory').style.display = 'none';
+
+            document.getElementById('winnerBanner').classList.remove('show');
+            updateGameModeControls();
+            updateTimerDisplay('white', whiteTime);
+            updateTimerDisplay('black', blackTime);
+
+            initBoard();
+            // Record initial position for threefold repetition tracking
+            positionCounts.set(getBoardHash(), 1);
+            saveBoardState();
+            renderBoard();
+            updateUI();
+            startTimer();
+
+            if (isAIControlledTurn()) scheduleAIMove();
+        }
+
+        // Resign: leave the current game/run and return to the main menu
+        function resignGame() {
+            if (gameMode === AI_WATCH_MODE) {
+                backToMenu();
+                return;
+            }
+            if (!gameOver && !confirm('Resign this game?')) return;
+            backToMenu();
+        }
+
+        // Back to menu
+        function backToMenu() {
+            gameOver = true;
+            clearInterval(timerInterval);
+            cancelPendingAIWork(gameMode === AI_WATCH_MODE || isAIMode(gameMode));
+            // Reset config to defaults
+            selectedTime = 60;
+            selectedAITime = 100;
+            selectedSide = 'random';
+            playerColor = 'white';
+            aiWatchPaused = false;
+
+            document.getElementById('winnerBanner').classList.remove('show');
+            document.getElementById('modeSelect').classList.remove('hidden');
+            gameMode = null;
+            updateGameModeControls();
+        }
+
+        // Initialize - just show mode select, don't start game
+        updateTimerDisplay('white', 60);
+        updateTimerDisplay('black', 60);
+
+        // AI worker for off-main-thread search (null = synchronous fallback)
+        let aiRequestId = 0;
+        let aiWorker = createAIWorker();
+
+        function cancelPendingAIWork(restartWorker = false) {
+            if (aiMoveTimeout) {
+                clearTimeout(aiMoveTimeout);
+                aiMoveTimeout = null;
+            }
+            aiRequestId++;
+            if (restartWorker && aiWorker) {
+                aiWorker.terminate();
+                aiWorker = createAIWorker();
+            }
+        }
+
+        // ==================== PUZZLE MODE ====================
+        // A puzzle is a position where the side to move can force reaching the
+        // points target within N of its own moves - whatever the opponent
+        // replies - where N is really needed (N-1 moves would not do it), and
+        // where exactly one first move does it. N is the level: 1, 2 or 3.
+        //
+        // Positions come from engine-vs-engine games, so every puzzle is a
+        // position that really arose. Each candidate is then checked by
+        // walking the whole tree with the game's own move generator: every
+        // legal move for the solver, every legal reply to it, and so on down
+        // to the last move. Nothing is pruned away as unpromising and nothing
+        // is guessed, so "only one move wins" is exact, not a search result.
+        const PUZZLE_DEPTH = 3;          // engine strength in the generator games
+        const PUZZLE_MAX_PLIES = 120;
+        const PUZZLE_LEVELS = [1, 2, 3];
+        // The most a single move can bank. N moves can bank at most N times
+        // this, so a position needing more than that is out of reach.
+        const PUZZLE_MAX_GAIN = Math.max(...Object.values(MOVER_VALUES));
+        const PUZZLE_QUEUE_TARGET = 2;   // puzzles kept ready in the background
+
+        let puzzleActive = false;
+        let puzzleLevel = 2;             // moves the solver gets
+        let puzzleQueues = { 1: [], 2: [], 3: [] };
+        let puzzleStats = { 1: { solved: 0, missed: 0 },
+                            2: { solved: 0, missed: 0 },
+                            3: { solved: 0, missed: 0 } };
+        let puzzleFilling = false;
+        let puzzleCurrent = null;
+        let puzzleMovesLeft = 0;         // solver moves still to come
+        // null while the puzzle is live, then how it ended. 'stuck' and 'lost'
+        // still allow Undo - they are dead ends you are meant to back out of.
+        let puzzleOver = null;           // null | solved | skipped | stuck | lost
+        let puzzleOffLine = false;       // the forced win has been thrown away
+        let puzzleHistory = [];          // one snapshot per move you have made
+        let puzzleBusy = false;          // a move is animating - ignore clicks
+        let puzzleMissedThis = false;
+        let puzzleLine = [];             // the solver's moves so far, in notation
+        let puzzleHintSquare = null;     // the piece a hint is glowing, if any
+
+        function playCorrectSound() {
+            initAudio();
+            tone({ freq: 880, dur: 0.15, level: 0.2 });
+            tone({ freq: 1320, at: 0.1, dur: 0.2, level: 0.2 });
+        }
+
+        function playWrongSound() {
+            initAudio();
+            tone({ freq: 200, type: 'sawtooth', dur: 0.25, level: 0.15 });
+        }
+
+        // ---- the search ---------------------------------------------------
+        // These drive the live globals (board, lastSwap, currentTurn) through
+        // make/unmake, exactly like the real game does, so the rules - the ko
+        // rule included - are the same ones the player will be held to.
+        const otherColor = color => color === 'white' ? 'black' : 'white';
+
+        // Points the mover banks for a move: swaps score, quiet moves do not.
+        function moveGain(mv) {
+            return board[mv.to.row][mv.to.col]
+                ? MOVER_VALUES[board[mv.from.row][mv.from.col].type] : 0;
+        }
+
+        function pushMove(mv) {
+            const undo = { mv, lastSwap: lastSwap, turn: currentTurn,
+                           target: board[mv.to.row][mv.to.col] };
+            const moving = board[mv.from.row][mv.from.col];
+            if (undo.target) {
+                board[mv.from.row][mv.from.col] = undo.target;
+                board[mv.to.row][mv.to.col] = moving;
+                lastSwap = {
+                    swappedPiecePos: { row: mv.from.row, col: mv.from.col },
+                    originalPos: { row: mv.to.row, col: mv.to.col }
+                };
+            } else {
+                board[mv.to.row][mv.to.col] = moving;
+                board[mv.from.row][mv.from.col] = null;
+                lastSwap = null;
+            }
+            currentTurn = otherColor(currentTurn);
+            return undo;
+        }
+
+        function popMove(undo) {
+            const mv = undo.mv;
+            const moved = board[mv.to.row][mv.to.col];
+            if (undo.target) {
+                board[mv.to.row][mv.to.col] = undo.target;
+                board[mv.from.row][mv.from.col] = moved;
+            } else {
+                board[mv.from.row][mv.from.col] = moved;
+                board[mv.to.row][mv.to.col] = null;
+            }
+            lastSwap = undo.lastSwap;
+            currentTurn = undo.turn;
+        }
+
+        // Biggest swaps first. The whole list is always searched, but looking
+        // at the moves that bank the most first finds the win - or the
+        // refutation - on the first try far more often than not.
+        function rankedMoves(color) {
+            return getAllMoves(color)
+                .map(mv => ({ mv: mv, gain: moveGain(mv) }))
+                .sort((a, b) => b.gain - a.gain);
+        }
+
+        // Can the side to move bank `needMe` points within `n` of its moves,
+        // against any defence? `needOpp` is what the opponent still needs -
+        // if they get there first the win was never forced.
+        function canForce(n, needMe, needOpp) {
+            if (n <= 0 || n * PUZZLE_MAX_GAIN < needMe) return false;
+            for (const { mv, gain } of rankedMoves(currentTurn)) {
+                if (gain >= needMe) return true;
+                if (n === 1) break;      // sorted: no later move finishes either
+                const undo = pushMove(mv);
+                const forced = defenceFails(n - 1, needMe - gain, needOpp);
+                popMove(undo);
+                if (forced) return true;
+            }
+            return false;
+        }
+
+        // Opponent to move: true when every legal reply still leaves the win
+        // forced. One reply that escapes is enough to break it.
+        function defenceFails(n, needMe, needOpp) {
+            const replies = rankedMoves(currentTurn);
+            if (replies.length === 0) return false;
+            for (const { mv, gain } of replies) {
+                if (gain >= needOpp) return false;   // opponent gets there first
+                const undo = pushMove(mv);
+                const still = canForce(n, needMe, needOpp - gain);
+                popMove(undo);
+                if (!still) return false;
+            }
+            return true;
+        }
+
+        // Every move that forces the win within `n`, for the side to move.
+        function forcedWins(n, needMe, needOpp) {
+            const wins = [];
+            if (n <= 0) return wins;
+            for (const { mv, gain } of rankedMoves(currentTurn)) {
+                if (gain >= needMe) { wins.push(mv); continue; }
+                if (n === 1) continue;
+                const undo = pushMove(mv);
+                const forced = defenceFails(n - 1, needMe - gain, needOpp);
+                popMove(undo);
+                if (forced) wins.push(mv);
+            }
+            return wins;
+        }
+
+        // The opponent's best practical try. Every reply loses, so the defence
+        // plays for time: drag the win out for as many moves as possible, and
+        // among the replies that do that, leave the fewest ways through. Ties
+        // go to the reply that banks the most, since the moves are ranked that
+        // way. Dragging it out comes first, and that is what makes a win in N
+        // really take N moves - a reply that let the solver finish early would
+        // turn a three-mover into a two-mover.
+        function hardestReply(n, needMe, needOpp) {
+            let best = null;
+            for (const { mv, gain } of rankedMoves(currentTurn)) {
+                // Reaching its own target ends the game on the spot - no
+                // refutation beats that, and the moves are gain-ordered, so the
+                // first one that does it is the best one. On the winning line
+                // this never fires: defenceFails has already ruled it out.
+                if (gain >= needOpp) return mv;
+                const undo = pushMove(mv);
+                let soonest = n, ways = 0;
+                for (let k = 1; k <= n; k++) {
+                    const wins = forcedWins(k, needMe, needOpp - gain);
+                    if (wins.length) { soonest = k; ways = wins.length; break; }
+                }
+                popMove(undo);
+                if (!best || soonest > best.soonest ||
+                    (soonest === best.soonest && ways < best.ways)) {
+                    best = { mv: mv, soonest: soonest, ways: ways };
+                }
+            }
+            return best && best.mv;
+        }
+
+        // The unique winning first move of a win in exactly `n`, or null when
+        // this position is not that puzzle: out of reach, winnable sooner, or
+        // winnable in more than one way.
+        function puzzleAt(n, needMe, needOpp) {
+            if (needMe > n * PUZZLE_MAX_GAIN) return null;
+            if (n > 1 && canForce(n - 1, needMe, needOpp)) return null;
+            const wins = forcedWins(n, needMe, needOpp);
+            return wins.length === 1 ? wins[0] : null;
+        }
+
+        // ---- generation ---------------------------------------------------
+        // Play one engine-vs-engine game and return the first position in it
+        // that makes a level-`n` puzzle, or null. Leaves the globals wherever
+        // the game ended - collectPuzzle puts them back. `setup` is the
+        // engine move that produced the position, so loadPuzzle can replay
+        // turn x-1 on screen instead of plopping you into turn x.
+        function harvestPuzzleGame(n) {
+            board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
+            dealBoard(board);
+            lastSwap = null;
+            currentTurn = 'white';
+            const banked = { white: 0, black: 0 };
+            let setup = null;            // the move that led into each candidate
+
+            for (let ply = 0; ply < PUZZLE_MAX_PLIES; ply++) {
+                const me = currentTurn;
+                const need = WIN_SCORE - banked[me];
+                const needOpp = WIN_SCORE - banked[otherColor(me)];
+
+                if (need <= n * PUZZLE_MAX_GAIN && needOpp > 0) {
+                    const win = puzzleAt(n, need, needOpp);
+                    if (win) {
+                        return {
+                            board: board.map(r => r.map(c => c ? { ...c } : null)),
+                            turn: me,
+                            lastSwap: lastSwap ? JSON.parse(JSON.stringify(lastSwap)) : null,
+                            scores: { ...banked },
+                            moves: n,
+                            solution: win,
+                            setup
+                        };
+                    }
+                }
+
+                const mv = ENGINE.think(board, lastSwap, me, PUZZLE_DEPTH, 0,
+                    banked.white, banked.black, WIN_SCORE);
+                if (!mv) break;
+                banked[me] += moveGain(mv);
+                pushMove(mv);
+                setup = mv;
+                if (banked[me] >= WIN_SCORE) break;
+            }
+            return null;
+        }
+
+        // Play up to `games` generator games, restoring the live position
+        // afterwards - this runs while a puzzle is on the board.
+        function collectPuzzle(games = 1, n = 2) {
+            const savedBoard = board, savedSwap = lastSwap, savedTurn = currentTurn;
+            try {
+                for (let i = 0; i < games; i++) {
+                    const puzzle = harvestPuzzleGame(n);
+                    if (puzzle) return puzzle;
+                }
+                return null;
+            } finally {
+                board = savedBoard; lastSwap = savedSwap; currentTurn = savedTurn;
+            }
+        }
+
+        // Keep a couple of puzzles ready for the level being played. One game
+        // per slice, with a yield in between, so the page stays responsive
+        // while it searches.
+        async function fillPuzzleQueue() {
+            if (puzzleFilling) return;
+            puzzleFilling = true;
+            try {
+                while (puzzleActive && puzzleQueues[puzzleLevel].length < PUZZLE_QUEUE_TARGET) {
+                    const level = puzzleLevel;
+                    const puzzle = collectPuzzle(1, level);
+                    if (puzzle) puzzleQueues[level].push(puzzle);
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            } finally {
+                puzzleFilling = false;
+            }
+        }
+
+        // ---- playing them -------------------------------------------------
+        function startPuzzles(level) {
+            puzzleLevel = PUZZLE_LEVELS.includes(level) ? level : 2;
+            document.getElementById('modeSelect').classList.add('hidden');
+            document.getElementById('puzzleOverlay').classList.add('show');
+            document.getElementById('winnerBanner').classList.remove('show');
+
+            const container = document.querySelector('.game-container');
+            container.style.display = 'none';       // shown once a puzzle is ready
+            container.classList.add('puzzle-mode');
+            document.querySelectorAll('.side-panel').forEach(el => el.style.display = 'none');
+            document.querySelector('.move-log-panel').style.display = 'none';
+            document.querySelector('.turn-indicator').style.display = 'none';
+            document.querySelector('.rules').style.display = 'none';
+            document.querySelector('.game-actions').style.display = 'none';
+
+            puzzleActive = true;
+            gameMode = null;
+            gameOver = true;             // no live game is running behind this
+            puzzleStats = { 1: { solved: 0, missed: 0 },
+                            2: { solved: 0, missed: 0 },
+                            3: { solved: 0, missed: 0 } };
+            puzzleCurrent = null;
+            selectedSquare = null;
+            validMoves = [];
+            lastMove = null;
+
+            updateBoardCSS();
+            generateLabels();
+            updatePuzzleCounters();
+            nextPuzzle();
+        }
+
+        async function nextPuzzle() {
+            const level = puzzleLevel;
+            document.getElementById('puzzleVerdict').style.display = 'none';
+            document.getElementById('puzzleHint').style.display = 'block';
+            puzzleCurrent = null;
+            puzzleBusy = false;
+            const loading = document.getElementById('puzzleLoading');
+            loading.textContent = `Finding a win in ${level}...`;
+            loading.style.display = puzzleQueues[level].length ? 'none' : 'block';
+            document.getElementById('puzzleTurnIndicator').style.display =
+                puzzleQueues[level].length ? 'block' : 'none';
+
+            fillPuzzleQueue();
+            while (puzzleActive && puzzleLevel === level && puzzleQueues[level].length === 0) {
+                await new Promise(resolve => setTimeout(resolve, 30));
+            }
+            if (!puzzleActive || puzzleLevel !== level) return;
+
+            loading.style.display = 'none';
+            document.getElementById('puzzleTurnIndicator').style.display = 'block';
+            loadPuzzle(puzzleQueues[level].shift());
+            fillPuzzleQueue();           // top the queue back up in the background
+        }
+
+        function loadPuzzle(puzzle) {
+            puzzleCurrent = puzzle;
+            puzzleMovesLeft = puzzle.moves;
+            puzzleOver = null;
+            puzzleOffLine = false;
+            puzzleHistory = [];
+            puzzleMissedThis = false;
+            puzzleBusy = false;
+            puzzleLine = [];
+            puzzleHintSquare = null;
+
+            // Start from the position one half-move earlier and let the last
+            // enemy move play out on screen - you see turn x-1 land rather
+            // than being dropped into turn x. The pre-move state inverts
+            // straight out of the snapshot: a quiet move empties its own
+            // origin, so a piece still sitting on `from` afterwards is the
+            // one that was swapped.
+            const setup = puzzle.setup;
+            board = puzzle.board.map(row => row.map(cell => cell ? { ...cell } : null));
+            if (setup) {
+                const moving = puzzle.board[setup.to.row][setup.to.col];
+                const captured = puzzle.board[setup.from.row][setup.from.col];
+                board[setup.from.row][setup.from.col] = moving;
+                board[setup.to.row][setup.to.col] = captured || null;
+                lastSwap = null;         // pushMove rebuilds it as it replays
+                currentTurn = otherColor(puzzle.turn);
+                scores = { ...puzzle.scores };
+                scores[moving.color] -= captured ? MOVER_VALUES[moving.type] : 0;
+            } else {
+                lastSwap = puzzle.lastSwap ? JSON.parse(JSON.stringify(puzzle.lastSwap)) : null;
+                currentTurn = puzzle.turn;
+                scores = { ...puzzle.scores };
+            }
+            selectedSquare = null;
+            validMoves = [];
+            lastMove = null;
+            document.querySelector('.game-container').style.display = 'flex';
+
+            if (!setup) {
+                renderBoard();
+                updatePuzzleHUD();
+                return;
+            }
+
+            puzzleBusy = true;           // clicks locked while it replays
+            renderBoard();
+            updatePuzzleHUD();           // shows the mover as "to move", as seen
+            setTimeout(() => {           // a beat to read the pre-move board
+                if (!puzzleActive || puzzleCurrent !== puzzle) return;
+                playPuzzleMove(setup, () => updatePuzzleHUD());
+            }, 400);
+        }
+
+        function updatePuzzleHUD() {
+            const left = puzzleMovesLeft;
+            document.getElementById('puzzleTurnSide').textContent =
+                currentTurn === 'white' ? 'White' : 'Black';
+            document.getElementById('puzzleNeedWhite').textContent = scores.white;
+            document.getElementById('puzzleNeedBlack').textContent = scores.black;
+            document.getElementById('puzzleHint').textContent =
+                puzzleOffLine
+                    ? `The win is gone - ${left} ${left === 1 ? 'move' : 'moves'} left to play out`
+                    : left <= 1
+                        ? 'One move wins it'
+                        : `Force the win in ${left}`;
+            updatePuzzleControls();
+        }
+
+        // Undo is live whenever there is a move to take back and the puzzle is
+        // not already put to bed. Dead ends ('stuck', 'lost') are exactly the
+        // states you undo out of, so they keep it.
+        function updatePuzzleControls() {
+            const undo = document.getElementById('puzzleUndo');
+            if (!undo) return;
+            undo.disabled = !puzzleHistory.length || puzzleBusy ||
+                puzzleOver === 'solved' || puzzleOver === 'skipped';
+        }
+
+        function updatePuzzleCounters() {
+            document.getElementById('puzzleSolved').textContent = puzzleStats[puzzleLevel].solved;
+            document.getElementById('puzzleMissed').textContent = puzzleStats[puzzleLevel].missed;
+        }
+
+        function handlePuzzleClick(row, col) {
+            if (!puzzleCurrent || puzzleBusy || puzzleOver) return;
+            const clicked = board[row][col];
+
+            if (selectedSquare && validMoves.some(m => m.row === row && m.col === col)) {
+                const from = selectedSquare;
+                selectedSquare = null;
+                validMoves = [];
+                tryPuzzleMove(from, { row, col });
+                return;
+            }
+            if (clicked && clicked.color === currentTurn) {
+                selectedSquare = { row, col };
+                validMoves = getValidMoves(row, col);
+            } else {
+                selectedSquare = null;
+                validMoves = [];
+            }
+            renderBoard();
+        }
+
+        // Every legal move gets played. A move that throws the win away turns
+        // the board red and is answered by the refutation - the defence already
+        // prefers a reply that kills the win, so it needs no special casing -
+        // and you keep your remaining moves to play the wrong idea out and see
+        // it fall apart. Undo backs out of it.
+        function tryPuzzleMove(from, to) {
+            const mv = { from: from, to: to };
+            const me = currentTurn;
+            const needMe = remaining(me), needOpp = remaining(otherColor(me));
+            const gain = moveGain(mv);
+            const notation = notationFor(mv);
+
+            let losesIt;
+            if (gain >= needMe) {
+                losesIt = false;                     // that is the win, right now
+            } else if (puzzleMovesLeft <= 1) {
+                losesIt = true;                      // last move, and it did not land
+            } else {
+                const undo = pushMove(mv);
+                losesIt = !defenceFails(puzzleMovesLeft - 1, needMe - gain, needOpp);
+                popMove(undo);
+            }
+
+            puzzleHistory.push(puzzleSnapshot());
+            if (losesIt && !puzzleOffLine) {         // the moment it goes wrong
+                markPuzzleMissed();
+                playWrongSound();
+                showMessage('That throws the win away - play it out, or undo');
+            }
+            if (losesIt) puzzleOffLine = true;
+
+            playPuzzleMove(mv, () => {
+                puzzleLine.push(notation);
+                puzzleMovesLeft--;
+                if (remaining(me) <= 0) { solvePuzzle(); return; }
+                if (puzzleMovesLeft <= 0) { endPuzzleAttempt('stuck'); return; }
+                puzzleBusy = true;       // the opponent is about to answer
+                setTimeout(() => {
+                    if (!puzzleActive || !puzzleCurrent) return;
+                    const reply = hardestReply(puzzleMovesLeft,
+                        remaining(me), remaining(otherColor(me)));
+                    if (!reply) { endPuzzleAttempt('stuck'); return; }
+                    playPuzzleMove(reply, () => {
+                        if (remaining(otherColor(me)) <= 0) endPuzzleAttempt('lost');
+                        else updatePuzzleHUD();
+                    });
+                }, 450);
+            });
+        }
+
+        // The wrong line has run its course. Not a verdict on the puzzle - the
+        // puzzle is still there behind you, one Undo away.
+        function endPuzzleAttempt(kind) {
+            puzzleOver = kind;
+            const opp = otherColor(puzzleCurrent.turn) === 'white' ? 'White' : 'Black';
+            showPuzzleVerdict(kind === 'lost' ? `${opp} got there first` : 'Out of moves',
+                'Undo to try another line, or Skip for the answer', true);
+        }
+
+        // A whole position in one object. The board is 6x6, so copying it beats
+        // unwinding animations, and it makes Undo a single assignment.
+        function puzzleSnapshot() {
+            return {
+                board: board.map(row => row.map(cell => cell ? { ...cell } : null)),
+                lastSwap: lastSwap ? JSON.parse(JSON.stringify(lastSwap)) : null,
+                turn: currentTurn,
+                scores: { ...scores },
+                movesLeft: puzzleMovesLeft,
+                offLine: puzzleOffLine,
+                line: puzzleLine.slice(),
+                lastMove: lastMove ? JSON.parse(JSON.stringify(lastMove)) : null
+            };
+        }
+
+        function puzzleRestore(snap) {
+            board = snap.board.map(row => row.map(cell => cell ? { ...cell } : null));
+            lastSwap = snap.lastSwap ? JSON.parse(JSON.stringify(snap.lastSwap)) : null;
+            currentTurn = snap.turn;
+            scores = { ...snap.scores };
+            puzzleMovesLeft = snap.movesLeft;
+            puzzleOffLine = snap.offLine;
+            puzzleLine = snap.line.slice();
+            lastMove = snap.lastMove;
+        }
+
+        // Take back your move and the answer to it as a pair, since on its own
+        // half of that is not a position you were ever asked to play from.
+        // Landing back on the winning line clears the red.
+        function undoPuzzleMove() {
+            if (!puzzleCurrent || puzzleBusy || !puzzleHistory.length) return;
+            if (puzzleOver === 'solved' || puzzleOver === 'skipped') return;
+            puzzleRestore(puzzleHistory.pop());
+            puzzleOver = null;
+            puzzleHintSquare = null;
+            selectedSquare = null;
+            validMoves = [];
+            hidePuzzleVerdict();
+            renderBoard();
+            updatePuzzleHUD();
+        }
+
+        // Back out of every wrong move at once, to the last position where the
+        // win was still there - what Hint and Skip both need to talk about.
+        function rewindToLine() {
+            while (puzzleOffLine && puzzleHistory.length) {
+                puzzleRestore(puzzleHistory.pop());
+            }
+            puzzleOver = null;
+            puzzleHintSquare = null;
+            selectedSquare = null;
+            validMoves = [];
+            hidePuzzleVerdict();
+        }
+
+        function notationFor(mv) {
+            const piece = board[mv.from.row][mv.from.col];
+            return getMoveNotation(piece, mv.from.row, mv.from.col, mv.to.row, mv.to.col,
+                !!board[mv.to.row][mv.to.col], board[mv.to.row][mv.to.col]);
+        }
+
+        // Animate a puzzle move, then apply it and hand back control
+        function playPuzzleMove(mv, done) {
+            puzzleBusy = true;
+            updatePuzzleControls();
+            puzzleHintSquare = null;     // the hint was for the move just made
+            const isSwap = !!board[mv.to.row][mv.to.col];
+            const points = moveGain(mv);
+            const mover = currentTurn;
+            lastMove = { from: { ...mv.from }, to: { ...mv.to } };
+            animateMove(mv.from.row, mv.from.col, mv.to.row, mv.to.col, isSwap, () => {
+                if (!puzzleActive) return;
+                pushMove(mv);
+                scores[mover] += points;
+                if (isSwap) playSwapSound(points); else playMoveSound();
+                selectedSquare = null;
+                validMoves = [];
+                renderBoard();
+                puzzleBusy = false;
+                updatePuzzleControls();
+                done();
+            });
+        }
+
+        function markPuzzleMissed() {
+            if (puzzleMissedThis) return;
+            puzzleMissedThis = true;
+            puzzleStats[puzzleLevel].missed++;
+            updatePuzzleCounters();
+        }
+
+        function solvePuzzle() {
+            puzzleOver = 'solved';
+            if (!puzzleMissedThis) {
+                puzzleStats[puzzleLevel].solved++;
+                updatePuzzleCounters();
+            }
+            playCorrectSound();
+            showPuzzleVerdict(puzzleMissedThis ? 'Solved' : 'Solved!',
+                puzzleLine.join(' then '), false);
+        }
+
+        // Point at the piece that has to move, without saying where it goes.
+        // That is a real assist, so it costs the clean solve the same way
+        // skipping does. Asking twice on one puzzle costs nothing more.
+        function hintPuzzle() {
+            if (!puzzleCurrent || puzzleBusy) return;
+            if (puzzleOver === 'solved' || puzzleOver === 'skipped') return;
+            rewindToLine();              // there is nothing to point at off the line
+            const wins = forcedWins(puzzleMovesLeft,
+                remaining(currentTurn), remaining(otherColor(currentTurn)));
+            if (!wins.length) { renderBoard(); updatePuzzleHUD(); return; }
+            markPuzzleMissed();
+            puzzleHintSquare = { row: wins[0].from.row, col: wins[0].from.col };
+            renderBoard();
+            updatePuzzleHUD();
+        }
+
+        // Give up on this one: show the whole winning line and move on
+        function skipPuzzle() {
+            if (!puzzleCurrent || puzzleBusy) return;
+            if (puzzleOver === 'solved' || puzzleOver === 'skipped') { nextPuzzle(); return; }
+            markPuzzleMissed();
+            rewindToLine();              // show the answer from where it still applies
+
+            const line = puzzleLine.slice();
+            const untouched = puzzleMovesLeft === puzzleCurrent.moves;
+            const next = revealSolution(line);
+            if (next) lastMove = { from: { ...next.from }, to: { ...next.to } };
+
+            puzzleOver = 'skipped';
+            selectedSquare = null;
+            validMoves = [];
+            renderBoard();
+            showPuzzleVerdict('Missed',
+                untouched && line.length === 1 ? `The only winning move was ${line[0]}`
+                                               : line.join(' then '), true);
+        }
+
+        // Walk the rest of the win out on the live board and put it back,
+        // appending each of the solver's moves to `line`. Returns the move to
+        // play now, for highlighting.
+        function revealSolution(line) {
+            const trail = [];
+            let needMe = remaining(currentTurn);
+            let needOpp = remaining(otherColor(currentTurn));
+            let left = puzzleMovesLeft, next = null;
+            try {
+                while (left > 0) {
+                    const wins = forcedWins(left, needMe, needOpp);
+                    if (!wins.length) break;
+                    const mv = wins[0];
+                    line.push(notationFor(mv));
+                    if (!next) next = mv;
+                    needMe -= moveGain(mv);
+                    trail.push(pushMove(mv));
+                    if (needMe <= 0) break;
+                    left--;
+                    const reply = hardestReply(left, needMe, needOpp);
+                    if (!reply) break;
+                    needOpp -= moveGain(reply);
+                    trail.push(pushMove(reply));
+                }
+            } finally {
+                while (trail.length) popMove(trail.pop());
+            }
+            return next;
+        }
+
+        function showPuzzleVerdict(title, detail, missed) {
+            const verdict = document.getElementById('puzzleVerdict');
+            document.getElementById('puzzleVerdictText').textContent = title;
+            document.getElementById('puzzleVerdictDetail').textContent = detail;
+            verdict.classList.toggle('missed', !!missed);
+            verdict.classList.toggle('dead-end',
+                puzzleOver === 'stuck' || puzzleOver === 'lost');
+            verdict.style.display = 'flex';
+            // the verdict says what happened - the running commentary is done
+            document.getElementById('puzzleHint').style.display = 'none';
+            document.getElementById('puzzleTurnIndicator').style.display = 'none';
+            updatePuzzleControls();
+        }
+
+        function hidePuzzleVerdict() {
+            document.getElementById('puzzleVerdict').style.display = 'none';
+            document.getElementById('puzzleHint').style.display = 'block';
+            document.getElementById('puzzleTurnIndicator').style.display = 'block';
+        }
+
+        function exitPuzzles() {
+            puzzleActive = false;
+            puzzleCurrent = null;
+            puzzleBusy = false;
+            puzzleHintSquare = null;
+            puzzleOffLine = false;
+            puzzleHistory = [];
+            document.getElementById('puzzleOverlay').classList.remove('show');
+            document.getElementById('puzzleVerdict').style.display = 'none';
+            document.getElementById('puzzleHint').style.display = 'block';
+            document.getElementById('modeSelect').classList.remove('hidden');
+            document.querySelectorAll('.side-panel').forEach(el => el.style.display = 'block');
+            document.querySelector('.move-log-panel').style.display = 'block';
+            document.querySelector('.turn-indicator').style.display = 'flex';
+            document.querySelector('.rules').style.display = 'block';
+            document.querySelector('.game-actions').style.display = '';
+            updateGameModeControls();
+            const container = document.querySelector('.game-container');
+            container.style.display = 'flex';
+            container.classList.remove('puzzle-mode');
+            renderBoard();               // drop any hint glow left on the board
+        }
+    </script>
+</body>
+</html>
