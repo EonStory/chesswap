@@ -553,6 +553,18 @@
             display: inline-block;
         }
 
+        .puzzle-scoring-ref {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            padding: 8px 0;
+            font-size: 1.1em;
+            opacity: 0.7;
+        }
+        .puzzle-scoring-ref .ref-piece {
+            white-space: nowrap;
+        }
+
         .mode-select {
             position: fixed;
             top: 0;
@@ -1326,6 +1338,13 @@
             <span class="detail" id="puzzleVerdictDetail"></span>
             <button class="btn" id="puzzleVerdictUndo" onclick="undoPuzzleMove()">Undo</button>
             <button class="btn" onclick="nextPuzzle()">Next</button>
+        </div>
+        <div class="puzzle-scoring-ref">
+            <span class="ref-piece">♞ = 5</span>
+            <span class="ref-piece">♝ = 3</span>
+            <span class="ref-piece">♚ = 3</span>
+            <span class="ref-piece">♜ = 2</span>
+            <span class="ref-piece">♛ = 1</span>
         </div>
     </div>
 
