@@ -3983,12 +3983,13 @@ self.onmessage = function(e) {
                 currentTurn === 'white' ? 'White' : 'Black';
             document.getElementById('puzzleNeedWhite').textContent = scores.white;
             document.getElementById('puzzleNeedBlack').textContent = scores.black;
-            document.getElementById('puzzleHint').textContent =
-                puzzleOffLine
+            const hintMsg = puzzleOffLine
                     ? `The win is gone - ${left} ${left === 1 ? 'move' : 'moves'} left to play out`
                     : left <= 1
                         ? 'One move wins it'
                         : `Force the win in ${left}`;
+            document.getElementById('puzzleHint').innerHTML =
+                hintMsg + '<br>♞=5 · ♝=3 · ♚=3 · ♜=2 · ♛=1';
             updatePuzzleControls();
         }
 
