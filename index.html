@@ -241,6 +241,23 @@
             box-shadow: inset 0 0 0 3px rgba(120, 70, 20, 0.45);
         }
 
+        /* A move the no-repeat rule forbids: a grey ring, and a
+           not-allowed cursor. Clicking it explains why. */
+        .square.banned-move {
+            position: relative;
+            cursor: not-allowed;
+        }
+
+        .square.banned-move::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(90, 90, 90, 0.65);
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
+
         .piece {
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
             transition: transform 0.15s ease;
@@ -283,6 +300,12 @@
             box-shadow: inset 0 0 0 100px rgba(226, 178, 52, 0.5);
         }
 
+        /* The four in a line that ended the game - drawn over everything,
+           including the last-move highlight it usually sits on top of. */
+        .square.win-line {
+            box-shadow: inset 0 0 0 100px rgba(74, 222, 128, 0.55) !important;
+        }
+
         .piece.white {
             color: #fff;
             filter: drop-shadow(1px 1px 1px #000);
@@ -302,6 +325,8 @@
             padding: 15px 30px;
             border-radius: 8px;
             font-size: 1.2em;
+            max-width: min(520px, 90vw);
+            text-align: center;
             z-index: 100;
             display: none;
         }
@@ -1059,7 +1084,8 @@
                 font-size: 10px;
             }
 
-            .square.valid-move::after {
+            .square.valid-move::after,
+            .square.banned-move::after {
                 width: 40%;
                 height: 40%;
             }
@@ -1266,7 +1292,7 @@
     <div class="mode-select" id="modeSelect">
         <div class="mode-content">
             <h1>Cardinal Chess</h1>
-            <p>6x6 Swap-for-Points Variant</p>
+            <p>6x6 Swap Variant — Connect Four</p>
             <div class="mode-buttons">
                 <button class="mode-btn" onclick="startGame('ai')">
                     <span class="icon">🤖</span> vs AI
@@ -1291,13 +1317,14 @@
                 </button>
             </div>
             <div class="menu-rules">
-                <h4>How to play — Classic</h4>
+                <h4>How to play</h4>
                 <ul>
                     <li>Pieces move like in chess, but there are <strong>no captures</strong> - moving onto an enemy piece <strong>swaps</strong> places with it</li>
                     <li>A piece that was just swapped can't swap straight back</li>
-                    <li><strong>Score by the piece you swap with:</strong> Knight 5, Bishop/King 3, Rook 2, Queen 1</li>
-                    <li><strong>Win:</strong> swaps add to your score - first to <strong>25 points</strong> wins</li>
-                    <li>Threefold repetition is a draw</li>
+                    <li><strong>Win:</strong> line up <strong>four of your own pieces</strong> - across, down or diagonally, four in a row with no gaps</li>
+                    <li>A swap does two jobs: it pulls your piece into a line and knocks theirs out of one</li>
+                    <li>White's first move must be a <strong>knight move onto an empty square</strong> - the handicap that makes going first fair</li>
+                    <li><strong>No repeats:</strong> you can't make a move that brings back a position already seen this game (unless it wins). If you have no other move, it's a draw</li>
                 </ul>
             </div>
         </div>
@@ -1320,9 +1347,9 @@
         </div>
         <div class="puzzle-turn-indicator" id="puzzleTurnIndicator">
             <span class="to-move"><b id="puzzleTurnSide">White</b> to move</span>
-            <span class="tally">White <b id="puzzleNeedWhite">0</b><span class="dash">-</span>Black <b id="puzzleNeedBlack">0</b></span>
+            <span class="tally">White <b id="puzzleNeedWhite">0/4</b><span class="dash">-</span>Black <b id="puzzleNeedBlack">0/4</b></span>
         </div>
-        <div class="puzzle-hint" id="puzzleHint">Force the win<br>♞=5 · ♝=3 · ♚=3 · ♜=2 · ♛=1</div>
+        <div class="puzzle-hint" id="puzzleHint">Force the win</div>
         <div class="puzzle-loading" id="puzzleLoading">Finding a puzzle...</div>
         <div class="puzzle-verdict" id="puzzleVerdict" style="display: none;">
             <h2 id="puzzleVerdictText">Solved!</h2>
@@ -1373,8 +1400,8 @@
         <div class="side-panel white">
             <h3>⚪ White</h3>
             <div class="score-box">
-                <div class="score-value" id="whiteScore">0</div>
-                <div class="score-label">points</div>
+                <div class="score-value" id="whiteScore">0/4</div>
+                <div class="score-label">in a line</div>
             </div>
             <div class="timer" id="whiteTimer">
                 <div>Time</div>
@@ -1405,8 +1432,8 @@
         <div class="side-panel black">
             <h3>⚫ Black</h3>
             <div class="score-box">
-                <div class="score-value" id="blackScore">0</div>
-                <div class="score-label">points</div>
+                <div class="score-value" id="blackScore">0/4</div>
+                <div class="score-label">in a line</div>
             </div>
             <div class="timer" id="blackTimer">
                 <div>Time</div>
@@ -1435,9 +1462,11 @@
             <li>Pieces move like standard chess</li>
             <li>No capturing - pieces swap positions</li>
             <li>Can't swap back immediately after being swapped</li>
-            <li>A swap scores by the piece you moved: Knight 5, Bishop/King 3, Rook 2, Queen 1</li>
-            <li>Swaps add to your score - first to 25 points wins</li>
-            <li>Threefold repetition = automatic draw</li>
+            <li>Four of your own pieces in a line wins - across, down or diagonally, no gaps</li>
+            <li>A swap can complete both lines at once; the player who moved wins</li>
+            <li>White's first move must be a knight move onto an empty square</li>
+            <li>No move may bring back a position already seen this game, unless it wins - banned moves are greyed out</li>
+            <li>No legal move left = draw</li>
         </ul>
     </div>
 
@@ -1451,22 +1480,47 @@
             N: { white: '♞', black: '♞', name: 'Knight' }
         };
 
-        // Six pieces fill the 6x6 back rank: the two bishops always start on
-        // opposite square colours, so each side has one of each.
+        // Five pieces a side, one of each.
         const PIECE_COUNT = 5;
         const PIECE_TYPES = ['R', 'N', 'K', 'Q', 'B'];
 
-        // Points scoring: a swap scores by the piece you move, not the piece
-        // you land on. Taking with an awkward piece pays; taking with the
-        // queen barely pays at all. First side to WIN_SCORE points wins.
-        // These values are meant to be re-tuned via self-play (test/tune.js).
-        const MOVER_VALUES = { N: 5, B: 3, K: 3, R: 2, Q: 1 };
-        const WIN_SCORE = 25;
+        // Connect four. Get CONNECT of your own pieces in a line -
+        // orthogonal or diagonal, no gaps, nothing of the opponent's between
+        // them - and you win. The pieces are the counters; there is nothing
+        // else to claim and nothing to bank.
+        const CONNECT = 4;
 
         // Fixed board size of 6x6
         const BOARD_SIZE = 6;
         const SQUARE_SIZE = 70;
         const PIECE_FONT_SIZE = 44;
+
+        // Every run of CONNECT collinear squares: 54 of them on 6x6 at
+        // CONNECT 4 - 18 across, 18 up, 9 on each diagonal. WIN_AT[sq] lists
+        // the ones through a square, so a move only re-checks its own lines.
+        const WINDOWS = (() => {
+            const out = [];
+            for (let row = 0; row < BOARD_SIZE; row++) {
+                for (let col = 0; col < BOARD_SIZE; col++) {
+                    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+                        const er = row + dr * (CONNECT - 1), ec = col + dc * (CONNECT - 1);
+                        if (er < 0 || er >= BOARD_SIZE || ec < 0 || ec >= BOARD_SIZE) continue;
+                        const w = [];
+                        for (let i = 0; i < CONNECT; i++) w.push({ row: row + dr * i, col: col + dc * i });
+                        out.push(w);
+                    }
+                }
+            }
+            return out;
+        })();
+        const WIN_AT = (() => {
+            const at = [];
+            for (let i = 0; i < BOARD_SIZE * BOARD_SIZE; i++) at.push([]);
+            WINDOWS.forEach((w, i) => {
+                for (const sq of w) at[sq.row * BOARD_SIZE + sq.col].push(i);
+            });
+            return at;
+        })();
 
         // Game state
         let boardSize = BOARD_SIZE; // Fixed 6x6 board
@@ -1474,11 +1528,13 @@
         let currentTurn = 'white';
         let selectedSquare = null;
         let validMoves = [];
+        let bannedMoves = []; // the selected piece's moves that would repeat a position
         let whiteTime = 60;
         let blackTime = 60;
         let timerInterval = null;
         let gameOver = false;
-        let scores = { white: 0, black: 0 }; // points banked; first to WIN_SCORE wins
+        let winLine = null;  // the completed line, for highlighting it
+        let openingMove = true;  // white's handicapped first move is still to come
         let lastSwap = null; // Tracks the last swap to prevent immediate swap-back
         let gameMode = null; // 'pvp', 'ai', or 'aiwatch'
         let aiMoveTimeout = null; // Track AI timeout so we can cancel it
@@ -1496,7 +1552,11 @@
         let moveHistory = []; // Array of {from, to, piece, captured, notation}
         let boardHistory = []; // Array of board states
         let viewingIndex = -1; // -1 means viewing current, otherwise index into history
-        let positionCounts = new Map(); // Track position occurrences for threefold repetition
+        // Every position reached this game, for the no-repeat rule:
+        // seenPositions holds their getBoardHash() keys, positionLog copies of
+        // them for the engine (whose hash keys differ from run to run).
+        let seenPositions = new Set();
+        let positionLog = [];
 
         // Audio context for sounds
         let audioCtx = null;
@@ -1540,25 +1600,15 @@
             osc.stop(t0 + dur + 0.02);
         }
 
-        // How good a swap sounds is ranked from MOVER_VALUES rather than hard
-        // coded, so re-tuning the piece values re-ranks the sounds with them:
-        // the cheapest swap in the table always gets tier 0, the dearest the
-        // dramatic one, whatever the numbers happen to be.
-        const SWAP_TIERS = (() => {
-            const distinct = [...new Set(Object.values(MOVER_VALUES))].sort((a, b) => a - b);
-            const tiers = {};
-            distinct.forEach((v, i) => {
-                tiers[v] = distinct.length === 1 ? 3 : Math.round(i * 3 / (distinct.length - 1));
-            });
-            return tiers;
-        })();
-
         // C major throughout, so consecutive swaps never clash
         const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5, G6 = 1568, C7 = 2093;
 
-        function playSwapSound(points) {
+        // How a move sounds is how close it just brought you to a line:
+        // `level` is how many of your pieces now sit in the fullest live
+        // window through the square you landed on, 1 up to CONNECT.
+        function playLineSound(level) {
             initAudio();
-            switch (SWAP_TIERS[points] ?? 0) {
+            switch (Math.min(Math.max(level - 1, 0), 3)) {
                 case 0:   // basic: a single short blip
                     tone({ freq: C5, dur: 0.12, level: 0.18 });
                     break;
@@ -1682,33 +1732,29 @@
             }
         }
 
-        // Initialize the board
-        // A random back rank: the five pieces land in five of the six columns,
-        // in random order, so one column starts empty. Returns an array of
-        // Place pieces randomly across the back two rows.
-        // Returns an array of {row, col, type} placements (row offsets 0-1 from the back).
-        function randomBackRows() {
-            const types = shuffle([...PIECE_TYPES]);
-            const squares = [];
-            for (let r = 0; r < 2; r++)
-                for (let c = 0; c < BOARD_SIZE; c++)
-                    squares.push({ r, c });
-            const picked = shuffle(squares).slice(0, PIECE_COUNT);
-            return picked.map((sq, i) => ({ row: sq.r, col: sq.c, type: types[i] }));
-        }
+        // The deal. White's four edge pieces go on a1, a5, f2 and f6, and
+        // black's are their mirror image across the middle of the board -
+        // same file, rank flipped, same piece - so a white rook on a1 means a
+        // black rook on a6. The fifth piece goes in the centre: white's on
+        // one of c3, c4, d3 or d4, black's on the square diagonally opposite.
+        // Only the piece order and the centre square are random, 480 starts
+        // in all.
+        //
+        // Nobody starts with more than two in any line, and the armies start
+        // apart, so the deal can't decide the game on its own the way the old
+        // scattered deal sometimes did.
+        const EDGE_SQUARES = [[5, 0], [1, 0], [4, 5], [0, 5]];     // a1 a5 f2 f6
+        const CENTRE_SQUARES = [[2, 2], [2, 3], [3, 2], [3, 3]];   // c4 d4 c3 d3
 
-        // Lay pieces across the back two rows for both sides.
-        // Half the time black mirrors white, half the time rotated 180.
         function dealBoard(target) {
-            const placements = randomBackRows();
-            const rotated = Math.random() < 0.5;
-            for (const p of placements) {
-                const wRow = BOARD_SIZE - 1 - p.row;
-                target[wRow][p.col] = { type: p.type, color: 'white' };
-                const bRow = p.row;
-                const bCol = rotated ? BOARD_SIZE - 1 - p.col : p.col;
-                target[bRow][bCol] = { type: p.type, color: 'black' };
-            }
+            const types = shuffle([...PIECE_TYPES]);
+            EDGE_SQUARES.forEach(([row, col], i) => {
+                target[row][col] = { type: types[i], color: 'white' };
+                target[BOARD_SIZE - 1 - row][col] = { type: types[i], color: 'black' };
+            });
+            const [row, col] = CENTRE_SQUARES[Math.floor(Math.random() * CENTRE_SQUARES.length)];
+            target[row][col] = { type: types[4], color: 'white' };
+            target[BOARD_SIZE - 1 - row][BOARD_SIZE - 1 - col] = { type: types[4], color: 'black' };
         }
 
         function initBoard() {
@@ -1737,6 +1783,10 @@
                         square.classList.add('selected');
                     }
 
+                    if (winLine && winLine.some(sq => sq.row === row && sq.col === col)) {
+                        square.classList.add('win-line');
+                    }
+
                     // Highlight last move
                     if (lastMove) {
                         if (lastMove.from.row === row && lastMove.from.col === col) {
@@ -1748,7 +1798,9 @@
                     }
 
                     const isValidMove = validMoves.some(m => m.row === row && m.col === col);
-                    if (isValidMove) {
+                    if (bannedMoves.some(m => m.row === row && m.col === col)) {
+                        square.classList.add('banned-move');
+                    } else if (isValidMove) {
                         const targetPiece = board[row][col];
                         if (targetPiece && targetPiece.color !== currentTurn) {
                             square.classList.add('valid-swap');
@@ -1836,6 +1888,12 @@
                     break;
             }
 
+            // White's handicap: a quiet knight move, nothing else.
+            if (openingKnightOnly() && piece.color === 'white') {
+                if (piece.type !== 'N') return [];
+                return moves.filter(m => !board[m.row][m.col]);
+            }
+
             // Filter out swap-back move if this piece was just swapped
             if (lastSwap &&
                 lastSwap.swappedPiecePos.row === row &&
@@ -1897,24 +1955,41 @@
                     makeMove(selectedSquare.row, selectedSquare.col, row, col);
                     selectedSquare = null;
                     validMoves = [];
+                    bannedMoves = [];
+                } else if (bannedMoves.some(m => m.row === row && m.col === col)) {
+                    // Keep the piece selected so another move is one click away.
+                    showMessage('Not allowed: that move would bring back a position ' +
+                                'that has already been on the board this game.', 4000);
+                    return;
                 } else if (clickedPiece && clickedPiece.color === currentTurn) {
                     // Select a different piece of same color
-                    selectedSquare = { row, col };
-                    validMoves = getValidMoves(row, col);
+                    selectPiece(row, col);
                 } else {
                     // Deselect
                     selectedSquare = null;
                     validMoves = [];
+                    bannedMoves = [];
                 }
             } else {
                 // Select a piece
                 if (clickedPiece && clickedPiece.color === currentTurn) {
-                    selectedSquare = { row, col };
-                    validMoves = getValidMoves(row, col);
+                    selectPiece(row, col);
                 }
             }
 
             renderBoard();
+        }
+
+        // Select a piece, splitting its moves into the ones it may play and
+        // the ones the no-repeat rule forbids (shown greyed out).
+        function selectPiece(row, col) {
+            selectedSquare = { row, col };
+            validMoves = [];
+            bannedMoves = [];
+            for (const to of getValidMoves(row, col)) {
+                const banned = isBannedMove({ from: { row, col }, to });
+                (banned ? bannedMoves : validMoves).push(to);
+            }
         }
 
         // Animate a piece moving from one square to another
@@ -1977,11 +2052,6 @@
                     board[fromRow][fromCol] = targetPiece;
                     board[toRow][toCol] = movingPiece;
 
-                    const points = MOVER_VALUES[movingPiece.type];
-                    scores[movingPiece.color] += points;
-                    showMessage(`${PIECES[movingPiece.type].name} swapped with ${PIECES[targetPiece.type].name} (+${points})!`);
-                    playSwapSound(points);
-
                     // Track the swap - opponent's piece can't swap back immediately
                     lastSwap = {
                         swappedPiecePos: { row: fromRow, col: fromCol },
@@ -1992,30 +2062,47 @@
                     board[toRow][toCol] = movingPiece;
                     board[fromRow][fromCol] = null;
                     lastSwap = null;
+                }
+
+                const level = lineLevel(movingPiece.color, toRow, toCol);
+                if (isSwap) {
+                    showMessage(`${PIECES[movingPiece.type].name} swapped with ${PIECES[targetPiece.type].name}!`);
+                    playLineSound(level);
+                } else if (level >= CONNECT - 1) {
+                    playLineSound(level);
+                } else {
                     playMoveSound();
                 }
 
                 // Record the move and save board state AFTER the move
                 recordMove(movingPiece, fromRow, fromCol, toRow, toCol, isSwap, targetPiece);
                 saveBoardState();
+                openingMove = false;
 
-                // Check win condition
-                if (checkWin(currentTurn)) {
+                // Check win condition. The mover is checked first: a swap
+                // hands the opponent's piece a new square, so it can finish
+                // their line too - but if it finishes both, the side that
+                // moved got there first.
+                const loser = otherColor(currentTurn);
+                winLine = winningLine(currentTurn) || winningLine(loser);
+                if (winLine) {
+                    const winner = winningLine(currentTurn) ? currentTurn : loser;
                     renderBoard();
                     updateUI();
-                    endGame(currentTurn, 'points');
+                    endGame(winner, 'connect');
                     return;
                 }
 
                 // Switch turns
                 currentTurn = currentTurn === 'white' ? 'black' : 'white';
 
-                // Check for threefold repetition AFTER turn switch so hash
+                // Record the position AFTER the turn switch so the hash
                 // includes who is next to move (consistent with initial hash).
-                if (checkThreefoldRepetition()) {
+                recordPosition();
+                if (legalMoves(currentTurn).length === 0) {
                     renderBoard();
                     updateUI();
-                    endGame('draw', 'threefold');
+                    endGame('draw', 'stuck');
                     return;
                 }
                 resetTurnTimer();
@@ -2026,14 +2113,61 @@
             });
         }
 
-        // Points still needed to win, never below zero.
-        function remaining(color) {
-            return Math.max(0, WIN_SCORE - scores[color]);
+        // True while white's handicapped first move is still to come. Moving
+        // first was worth about 62% of the decisive games in self-play;
+        // restricting that first move to a quiet knight move brings it back
+        // to even. The knight always has at least two quiet moves on the
+        // deal, so white still gets a choice.
+        function openingKnightOnly() {
+            return openingMove && currentTurn === 'white';
         }
 
-        // Check win condition - first to WIN_SCORE points.
+        // A window is live for a colour while it holds nothing of the other
+        // colour's: only a live window can ever become a line.
+        // liveCount returns how many of `color` are in it, or -1 if dead.
+        function liveCount(window, color) {
+            let mine = 0;
+            for (const sq of window) {
+                const piece = board[sq.row][sq.col];
+                if (!piece) continue;
+                if (piece.color !== color) return -1;
+                mine++;
+            }
+            return mine;
+        }
+
+        // The fullest live window through one square - how close landing
+        // there brought `color` to a line.
+        function lineLevel(color, row, col) {
+            let best = 0;
+            for (const wi of WIN_AT[row * BOARD_SIZE + col]) {
+                const count = liveCount(WINDOWS[wi], color);
+                if (count > best) best = count;
+            }
+            return best;
+        }
+
+        // The fullest live window anywhere, for the side panels.
+        function bestLine(color) {
+            let best = 0;
+            for (const w of WINDOWS) {
+                const count = liveCount(w, color);
+                if (count > best) best = count;
+            }
+            return best;
+        }
+
+        // The line `color` has completed, or null. Returned rather than a
+        // boolean so the board can light it up.
+        function winningLine(color) {
+            for (const w of WINDOWS) {
+                if (liveCount(w, color) === CONNECT) return w;
+            }
+            return null;
+        }
+
         function checkWin(color) {
-            return scores[color] >= WIN_SCORE;
+            return !!winningLine(color);
         }
 
         // Update UI
@@ -2052,17 +2186,14 @@
             document.getElementById('turnText').textContent = turnText;
             document.getElementById('turnIcon').textContent = currentTurn === 'white' ? '♔' : '♚';
 
-            // Update scores
+            // Update the "best line so far" readouts
             const whiteScoreEl = document.getElementById('whiteScore');
             const blackScoreEl = document.getElementById('blackScore');
-            const whiteLabelEl = document.querySelector('.side-panel.white .score-label');
-            const blackLabelEl = document.querySelector('.side-panel.black .score-label');
-            whiteScoreEl.textContent = scores.white;
-            blackScoreEl.textContent = scores.black;
-            whiteLabelEl.textContent = 'points';
-            blackLabelEl.textContent = 'points';
-            whiteScoreEl.classList.toggle('near-win', scores.white >= WIN_SCORE - 4);
-            blackScoreEl.classList.toggle('near-win', scores.black >= WIN_SCORE - 4);
+            const whiteLine = bestLine('white'), blackLine = bestLine('black');
+            whiteScoreEl.textContent = `${whiteLine}/${CONNECT}`;
+            blackScoreEl.textContent = `${blackLine}/${CONNECT}`;
+            whiteScoreEl.classList.toggle('near-win', whiteLine >= CONNECT - 1);
+            blackScoreEl.classList.toggle('near-win', blackLine >= CONNECT - 1);
 
             // Update active timer styling
             document.getElementById('whiteTimer').style.opacity = currentTurn === 'white' ? '1' : '0.5';
@@ -2132,11 +2263,13 @@
         }
 
         // Show message
-        function showMessage(text) {
+        let messageTimer = null;
+        function showMessage(text, ms = 2000) {
             const msgEl = document.getElementById('message');
             msgEl.textContent = text;
             msgEl.classList.add('show');
-            setTimeout(() => msgEl.classList.remove('show'), 2000);
+            clearTimeout(messageTimer);
+            messageTimer = setTimeout(() => msgEl.classList.remove('show'), ms);
         }
 
         // Convert position to chess notation (a1-f6)
@@ -2146,13 +2279,13 @@
             return files[col] + ranks[row];
         }
 
-        // Generate hash of current board position for threefold repetition
-        // detection. The banked scores are part of it: shuffling back and
-        // forth over empty squares repeats a position and eventually draws,
-        // but a cycle where the pieces keep swapping is scoring points, so it
-        // never repeats and never draws.
+        // Generate hash of current board position for the no-repeat rule.
+        // Nothing in this game is irreversible - no piece is ever
+        // added, removed or promoted, and there is no running score any more
+        // - so the position plus the side to move plus the ko square is the
+        // whole state, and any of it can come back at any distance.
         function getBoardHash() {
-            let hash = `${currentTurn}|${scores.white}-${scores.black}|`;
+            let hash = `${currentTurn}|`;
             for (let row = 0; row < BOARD_SIZE; row++) {
                 for (let col = 0; col < BOARD_SIZE; col++) {
                     const piece = board[row][col];
@@ -2164,17 +2297,42 @@
                 }
             }
             if (lastSwap) {
-                hash += `|${lastSwap.swappedPiecePos.row},${lastSwap.swappedPiecePos.col}`;
+                const { swappedPiecePos: s, originalPos: o } = lastSwap;
+                hash += `|${s.row},${s.col}>${o.row},${o.col}`;
             }
             return hash;
         }
 
-        // Check for threefold repetition (returns true if position occurred 3+ times)
-        function checkThreefoldRepetition() {
-            const hash = getBoardHash();
-            const count = (positionCounts.get(hash) || 0) + 1;
-            positionCounts.set(hash, count);
-            return count >= 3;
+        // No-repeat rule: a move may not bring back any position already
+        // reached this game. Nothing is ever captured, so without it a game
+        // can shuffle back and forth for ever; with it every game keeps
+        // moving forward, and in self-play not one ended drawn. A move that
+        // completes a line ends the game, so it is never banned.
+        function recordPosition() {
+            seenPositions.add(getBoardHash());
+            positionLog.push({ board: JSON.parse(JSON.stringify(board)),
+                               lastSwap: lastSwap && JSON.parse(JSON.stringify(lastSwap)),
+                               turn: currentTurn });
+        }
+
+        function resetPositions() {
+            seenPositions = new Set();
+            positionLog = [];
+            recordPosition();
+        }
+
+        function isBannedMove(mv) {
+            if (moveWinner(mv, currentTurn)) return false;
+            const undo = pushMove(mv);
+            const banned = seenPositions.has(getBoardHash());
+            popMove(undo);
+            return banned;
+        }
+
+        // The moves `color` may actually play. None left means the side to
+        // move is stuck, and the game is a draw.
+        function legalMoves(color) {
+            return getAllMoves(color).filter(mv => !isBannedMove(mv));
         }
 
         // Generate move notation
@@ -2379,31 +2537,28 @@
         // back to {from:{row,col},to:{row,col}} on the way out.
         //
         // Search: negamax with alpha-beta, principal-variation search,
-        // iterative deepening with aspiration windows, a quiescence search
-        // over swaps (this game's captures), null-move pruning, late move
-        // reductions, futility and late-move pruning, a Zobrist transposition
-        // table, and TT / killer / counter-move / history move ordering.
+        // iterative deepening with aspiration windows, null-move pruning,
+        // late move reductions, futility and late-move pruning, a Zobrist
+        // transposition table, and TT / killer / counter-move / history move
+        // ordering.
         // ===================================================================
 
         function buildEngine(cfg) {
             const SIZE = cfg.boardSize;
             const NSQ = SIZE * SIZE;
             const VOIDS = !!cfg.voids;
-            // The points target. think() can override it per search;
-            // changing it invalidates the table.
-            let winLimit = cfg.winScore;
+            // How many of your own pieces in a line wins.
+            const CONNECT = cfg.connect;
             // Piece types are indexed K,Q,R,B,N throughout.
             const TYPE_LETTER = ['K', 'Q', 'R', 'B', 'N'];
             const TYPE_INDEX = { K: 0, Q: 1, R: 2, B: 3, N: 4 };
-            const TYPE_VALUE = TYPE_LETTER.map(t => cfg.moverValues[t]);
 
             const MAXPC = 30;        // piece cap: attacked-sets are bitmasks
             const MAXPLY = 64;
             const MAXMOVES = 96;     // upper bound on one side's move count
             const INF = 1 << 29;
-            const MATE = 30000;      // reaching WIN_SCORE, adjusted by ply
+            const MATE = 30000;      // completing a line, adjusted by ply
             const MATE_TH = 29000;
-            const PT = 100;          // eval units per game point
 
             // ---- Tunable parameters ---------------------------------------
             // Every number the search and evaluation were hand-picked with,
@@ -2412,23 +2567,23 @@
             // defaults without touching the engine. Retune with self-play,
             // not with intuition: see the Tuning section of the README.
             const DEFAULTS = {
-                // Evaluation, in eval units (PT = 100 units per game point).
-                // Banked points dominate; the rest is a positional gradient
-                // worth at most about two points.
-                W_THREAT: 30,        // our best available swap (we move first)
-                W_THREAT_OPP: 20,    // their best available swap
-                W_THREAT2: 24,       // each further piece of ours that could swap
-                W_THREAT2_OPP: 4,    // ... and each further one of theirs
+                // Evaluation. A "window" is CONNECT collinear squares; you
+                // win by owning all of one. WIN_W is what a window is worth
+                // by how many of its squares you hold, and rises steeply:
+                // three in a live window is nearly the whole game.
+                WIN_W: [0, 1, 14, 120, 0],
+                // A window holding one enemy piece isn't dead: move onto that
+                // piece and the swap puts yours there. SWAP_W is what such a
+                // window is worth by how many of the rest you hold.
+                SWAP_W: [0, 0, 3, 90, 0],
                 W_MOB: 2,            // per legal move
-                PROX: [0, 6, 3, 1, 0],   // by "moves to reach on an empty board"
+                // At the horizon, check whether the side to move can finish
+                // a line this move, instead of trusting the evaluation.
+                LEAF_WIN: 1,
 
                 // Forward pruning margins, by depth.
                 RFP: [0, 220, 480, 800],   // reverse futility
                 FUTILITY: [0, 250, 500],   // futility
-
-                // Quiescence.
-                QMAX: 6,             // ply cap
-                Q_DELTA: 150,        // delta-pruning margin
 
                 // Null move.
                 NULL_MIN_DEPTH: 3,   // shallowest depth that may try one
@@ -2452,11 +2607,8 @@
             const P = Object.assign({}, DEFAULTS, cfg.tune || {});
 
             // Hoisted into locals: these sit in the innermost search loops.
-            const W_THREAT = P.W_THREAT, W_THREAT_OPP = P.W_THREAT_OPP;
-            const W_THREAT2 = P.W_THREAT2, W_THREAT2_OPP = P.W_THREAT2_OPP;
-            const W_MOB = P.W_MOB, PROX = P.PROX;
+            const WIN_W = P.WIN_W, SWAP_W = P.SWAP_W, W_MOB = P.W_MOB, LEAF_WIN = P.LEAF_WIN;
             const RFP = P.RFP, FUTILITY = P.FUTILITY;
-            const QMAX = P.QMAX, Q_DELTA = P.Q_DELTA;
             const NULL_MIN_DEPTH = P.NULL_MIN_DEPTH, NULL_R = P.NULL_R, NULL_DEEP = P.NULL_DEEP;
             const LMR_MIN_DEPTH = P.LMR_MIN_DEPTH, LMR_MIN_MOVES = P.LMR_MIN_MOVES;
             const LMR_MORE = P.LMR_MORE, LMR_DEEP = P.LMR_DEEP;
@@ -2492,43 +2644,31 @@
                 KNIGHT_T.push(Int8Array.from(hops));
             }
 
-            // Moves-to-reach on an otherwise empty board, per piece type, by
-            // BFS. A much better "how close am I to that piece" proxy than
-            // raw distance: it knows a knight's reach, and that a bishop can
-            // never touch the other colour's squares at all (63 = never).
-            const UNREACHABLE = 63;
-            const DIST = new Int8Array(5 * NSQ * NSQ).fill(UNREACHABLE);
-            for (let t = 0; t < 5; t++) {
-                const letter = TYPE_LETTER[t];
-                const adj = [];
-                for (let sq = 0; sq < NSQ; sq++) {
-                    const reach = [];
-                    if (letter === 'K') for (const s of KING_T[sq]) reach.push(s);
-                    else if (letter === 'N') for (const s of KNIGHT_T[sq]) reach.push(s);
-                    else {
-                        const lo = letter === 'B' ? 4 : 0, hi = letter === 'R' ? 4 : 8;
-                        for (let d = lo; d < hi; d++) for (const s of RAYS[sq][d]) reach.push(s);
-                    }
-                    adj.push(reach);
-                }
-                for (let src = 0; src < NSQ; src++) {
-                    const base = (t * NSQ + src) * NSQ;
-                    DIST[base + src] = 0;
-                    const queue = [src];
-                    for (let qi = 0; qi < queue.length; qi++) {
-                        const cur = queue[qi], nd = DIST[base + cur] + 1;
-                        for (const nxt of adj[cur]) {
-                            if (DIST[base + nxt] === UNREACHABLE) { DIST[base + nxt] = nd; queue.push(nxt); }
-                        }
+            // ---- Win lines -------------------------------------------------
+            // Every run of CONNECT collinear squares on the board: 54 of them
+            // on 6x6 at CONNECT 4. WIN_AT[sq] lists the ones through a
+            // square, so a move only ever re-checks its own lines.
+            const WINDOWS = [];
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    for (const [dr, dc] of [[0, 1], [1, 0], [1, 1], [1, -1]]) {
+                        const er = r + dr * (CONNECT - 1), ec = c + dc * (CONNECT - 1);
+                        if (er < 0 || er >= SIZE || ec < 0 || ec >= SIZE) continue;
+                        const w = new Int8Array(CONNECT);
+                        for (let k = 0; k < CONNECT; k++) w[k] = (r + dr * k) * SIZE + (c + dc * k);
+                        WINDOWS.push(w);
                     }
                 }
             }
+            const NWIN = WINDOWS.length;
+            const WIN_AT = [];
+            for (let sq = 0; sq < NSQ; sq++) WIN_AT.push([]);
+            for (let i = 0; i < NWIN; i++) for (const sq of WINDOWS[i]) WIN_AT[sq].push(i);
+            for (let sq = 0; sq < NSQ; sq++) WIN_AT[sq] = Int8Array.from(WIN_AT[sq]);
 
             // Two independent 32-bit Zobrist key sets: the first indexes the
             // transposition table, the second verifies the entry against
-            // collisions. Banked points are hashed as well - the same piece
-            // placement with different scores is a genuinely different
-            // position in this game, and the old engine's TT confused them.
+            // collisions.
             function rnd(n) {
                 const a = new Int32Array(n);
                 for (let i = 0; i < n; i++) a[i] = (Math.random() * 0x100000000) | 0;
@@ -2537,7 +2677,6 @@
             const ZP1 = rnd(2 * 5 * NSQ), ZP2 = rnd(2 * 5 * NSQ);   // [side][type][square]
             const ZKF1 = rnd(NSQ), ZKF2 = rnd(NSQ);   // ko: square of the displaced piece
             const ZKT1 = rnd(NSQ), ZKT2 = rnd(NSQ);   // ko: square it may not return to
-            const ZS1 = rnd(2 * 64), ZS2 = rnd(2 * 64);             // banked points per side
             const ZV1 = rnd(NSQ), ZV2 = rnd(NSQ);                   // void per square
             const ZTURN1 = (Math.random() * 0x100000000) | 0;
             const ZTURN2 = (Math.random() * 0x100000000) | 0;
@@ -2548,15 +2687,16 @@
             // one piece, a swap exchanges the squares of two.
             const pcType = new Int8Array(MAXPC);
             const pcSide = new Int8Array(MAXPC);      // 0 = white, 1 = black
-            const pcVal = new Int8Array(MAXPC);       // points for taking WITH this piece
             const pcSq = new Int8Array(MAXPC);
             const sqPc = new Int8Array(NSQ);          // piece id on a square, -1 if empty
             const sqVoid = new Uint8Array(NSQ);        // voids mode: 1 if square is a void
             const pcList = [new Int8Array(MAXPC), new Int8Array(MAXPC)];
             const pcN = new Int32Array(2);
-            const pts = new Int32Array(2);            // banked points per side
             let side = 0;                             // side to move
             let ko = -1;                              // from | to<<6 of the banned swap-back
+            // Set by make() to the side that just completed a line, else -1.
+            // A function of the position, so it needs no place in the hash.
+            let winFlag = -1;
             let z1 = 0, z2 = 0;
 
             // ---- Search state ----------------------------------------------
@@ -2576,13 +2716,12 @@
             const history = new Int32Array(2 * 4096);   // [side][move]
             const counters = new Int32Array(2 * 4096);  // reply that refuted a given move
             const prevMoveAt = new Int32Array(MAXPLY);
-            const path = new Int32Array(MAXPLY);        // position keys along the current line
-            const swapMask = new Int32Array(2);   // pieces that have a swap available
+            const path = new Float64Array(MAXPLY);      // position keys along the current line
+            const seenKeys = new Set();                  // positions already played this game
             const mobility = new Int32Array(2);
             const rootMv = new Int32Array(MAXMOVES);
             const rootSc = new Int32Array(MAXMOVES);
 
-            let quietRun = 0;        // plies since the last swap
             let nullCount = 0;       // null moves on the current line
             let bestMove = -1;
             let deadline = 0;        // 0 = no time limit
@@ -2602,8 +2741,6 @@
                         const pc = pcList[sd][i], sq = pcSq[pc];
                         z1 ^= zp1(pc, sq); z2 ^= zp2(pc, sq);
                     }
-                    const p = pts[sd] & 63;
-                    z1 ^= ZS1[sd * 64 + p]; z2 ^= ZS2[sd * 64 + p];
                 }
                 if (VOIDS) {
                     for (let sq = 0; sq < NSQ; sq++) {
@@ -2617,8 +2754,8 @@
                 if (side === 1) { z1 ^= ZTURN1; z2 ^= ZTURN2; }
             }
 
-            // Copy a UI position (object board + lastSwap + live scores) in.
-            function load(objBoard, objLastSwap, sideToMove, scoreWhite, scoreBlack, objVoids) {
+            // Copy a UI position (object board + lastSwap) in.
+            function load(objBoard, objLastSwap, sideToMove, objVoids) {
                 sqPc.fill(-1);
                 sqVoid.fill(0);
                 if (VOIDS && objVoids) {
@@ -2639,7 +2776,6 @@
                         const sd = piece.color === 'white' ? 0 : 1;
                         pcType[id] = TYPE_INDEX[piece.type];
                         pcSide[id] = sd;
-                        pcVal[id] = cfg.moverValues[piece.type];
                         pcSq[id] = sq;
                         sqPc[sq] = id;
                         pcList[sd][pcN[sd]++] = id;
@@ -2647,7 +2783,7 @@
                     }
                 }
                 side = sideToMove === 'white' ? 0 : 1;
-                pts[0] = scoreWhite; pts[1] = scoreBlack;
+                winFlag = -1;
                 ko = -1;
                 if (objLastSwap) {
                     const from = objLastSwap.swappedPiecePos.row * SIZE + objLastSwap.swappedPiecePos.col;
@@ -2666,8 +2802,7 @@
             }
 
             // Generate moves for `sd` into this ply's slice of `moves`.
-            // swapsOnly restricts them to swaps, for the quiescence search.
-            function gen(sd, off, swapsOnly) {
+            function gen(sd, off) {
                 let n = 0;
                 const koFrom = ko >= 0 ? (ko & 63) : -1;
                 const koTo = ko >= 0 ? (ko >> 6) : -1;
@@ -2681,7 +2816,7 @@
                         const targets = type === 0 ? KING_T[from] : KNIGHT_T[from];
                         for (let j = 0; j < targets.length; j++) {
                             const to = targets[j], occ = sqPc[to];
-                            if (occ >= 0 ? pcSide[occ] === sd : (swapsOnly || sqVoid[to])) continue;
+                            if (occ >= 0 ? pcSide[occ] === sd : sqVoid[to]) continue;
                             if (to === banned) continue;
                             moves[off + n++] = from | (to << 6);
                         }
@@ -2696,7 +2831,7 @@
                                     if (pcSide[occ] !== sd && to !== banned) moves[off + n++] = from | (to << 6);
                                     break;
                                 }
-                                if (!swapsOnly && !sqVoid[to] && to !== banned) moves[off + n++] = from | (to << 6);
+                                if (!sqVoid[to] && to !== banned) moves[off + n++] = from | (to << 6);
                             }
                         }
                     }
@@ -2722,11 +2857,6 @@
                     z2 ^= zp2(target, to) ^ zp2(target, from);
                     sqPc[from] = target; pcSq[target] = from;
 
-                    const gain = pcVal[pc];
-                    const before = pts[sd] & 63, after = (pts[sd] + gain) & 63;
-                    z1 ^= ZS1[sd * 64 + before] ^ ZS1[sd * 64 + after];
-                    z2 ^= ZS2[sd * 64 + before] ^ ZS2[sd * 64 + after];
-                    pts[sd] += gain;
                     ko = from | (to << 6);
                     z1 ^= ZKF1[from] ^ ZKT1[to];
                     z2 ^= ZKF2[from] ^ ZKT2[to];
@@ -2736,33 +2866,77 @@
                     ko = -1;
                 }
 
+                // Only two squares changed hands, so only the lines through
+                // them can be new. A swap can hand the opponent the game: the
+                // piece it displaces lands on `from`, which may finish their
+                // line. The mover is checked first - if both lines complete,
+                // the side that moved has already won.
+                winFlag = -1;
+                if (lineThrough(sd, to)) winFlag = sd;
+                else if (target >= 0 && lineThrough(sd ^ 1, from)) winFlag = sd ^ 1;
+
                 side ^= 1;
                 z1 ^= ZTURN1; z2 ^= ZTURN2;
             }
 
-            function unmake(mv, savedKo, savedZ1, savedZ2) {
+            // Does `sd` hold every square of some line through `sq`?
+            function lineThrough(sd, sq) {
+                const list = WIN_AT[sq];
+                for (let i = 0; i < list.length; i++) {
+                    const w = WINDOWS[list[i]];
+                    let all = true;
+                    for (let k = 0; k < CONNECT; k++) {
+                        const pc = sqPc[w[k]];
+                        if (pc < 0 || pcSide[pc] !== sd) { all = false; break; }
+                    }
+                    if (all) return true;
+                }
+                return false;
+            }
+
+            function unmake(mv, savedKo, savedZ1, savedZ2, savedWin) {
                 const from = mv & 63, to = (mv >> 6) & 63;
                 const pc = sqPc[to], target = sqPc[from];   // target >= 0 iff it was a swap
                 sqPc[from] = pc; pcSq[pc] = from;
                 if (target >= 0) {
                     sqPc[to] = target; pcSq[target] = to;
-                    pts[pcSide[pc]] -= pcVal[pc];
                 } else {
                     sqPc[to] = -1;
                     if (VOIDS) sqVoid[from] = 0;
                 }
-                ko = savedKo; z1 = savedZ1; z2 = savedZ2; side ^= 1;
+                ko = savedKo; z1 = savedZ1; z2 = savedZ2; winFlag = savedWin; side ^= 1;
             }
 
-            // Static evaluation from `sd`'s point of view. Banked points
-            // dominate; the rest is a gradient that steers the search toward
-            // scoring before it can see the swap itself.
+            // Static evaluation from `sd`'s point of view. A line is only
+            // ever going to be completed by one side, so a window holding
+            // both colours - or a void - is dead and worth nothing to
+            // anybody. Live windows are scored by how full they are, steeply,
+            // plus a small mobility term.
             function evaluate(sd) {
                 const opp = sd ^ 1;
+                let score = 0;
+                for (let i = 0; i < NWIN; i++) {
+                    const w = WINDOWS[i];
+                    let mine = 0, theirs = 0;
+                    for (let k = 0; k < CONNECT; k++) {
+                        const sq = w[k];
+                        if (VOIDS && sqVoid[sq]) { mine = theirs = 1; break; }
+                        const pc = sqPc[sq];
+                        if (pc < 0) continue;
+                        if (pcSide[pc] === sd) mine++; else theirs++;
+                    }
+                    if (mine && theirs) {
+                        if (theirs === 1) score += SWAP_W[mine];
+                        else if (mine === 1) score -= SWAP_W[theirs];
+                        continue;
+                    }
+                    if (mine) score += WIN_W[mine];
+                    else if (theirs) score -= WIN_W[theirs];
+                }
 
-                for (let s = 0; s < 2; s++) {
-                    const list = pcList[s], count = pcN[s];
-                    let swappers = 0, mob = 0;
+                for (let s2 = 0; s2 < 2; s2++) {
+                    const list = pcList[s2], count = pcN[s2];
+                    let mob = 0;
                     for (let i = 0; i < count; i++) {
                         const pc = list[i], from = pcSq[pc], type = pcType[pc];
                         if (type === 0 || type === 4) {
@@ -2770,9 +2944,7 @@
                             for (let j = 0; j < targets.length; j++) {
                                 const tgt = targets[j], occ = sqPc[tgt];
                                 if (occ < 0) { if (!sqVoid[tgt]) mob++; }
-                                else if (pcSide[occ] !== s) {
-                                    swappers |= 1 << pc; mob++;
-                                }
+                                else if (pcSide[occ] !== s2) mob++;
                             }
                         } else {
                             const lo = type === 3 ? 4 : 0, hi = type === 2 ? 4 : 8;
@@ -2781,68 +2953,73 @@
                                 for (let j = 0; j < ray.length; j++) {
                                     const rsq = ray[j], occ = sqPc[rsq];
                                     if (occ < 0) { if (!sqVoid[rsq]) mob++; continue; }
-                                    if (pcSide[occ] !== s) {
-                                        swappers |= 1 << pc; mob++;
-                                    }
+                                    if (pcSide[occ] !== s2) mob++;
                                     break;
                                 }
                             }
                         }
                     }
-                    swapMask[s] = swappers; mobility[s] = mob;
+                    mobility[s2] = mob;
                 }
 
-                let bestMine = 0, sumMine = 0, bestTheirs = 0, sumTheirs = 0;
-                const mineSwap = swapMask[sd], theirSwap = swapMask[opp];
-                for (let i = 0; i < pcN[sd]; i++) {
-                    const pc = pcList[sd][i];
-                    if (mineSwap & (1 << pc)) {
-                        const v = pcVal[pc];
-                        sumMine += v; if (v > bestMine) bestMine = v;
-                    }
-                }
-                for (let i = 0; i < pcN[opp]; i++) {
-                    const pc = pcList[opp][i];
-                    if (theirSwap & (1 << pc)) {
-                        const v = pcVal[pc];
-                        sumTheirs += v; if (v > bestTheirs) bestTheirs = v;
-                    }
-                }
-
-                let proxMine = 0, proxTheirs = 0;
-                for (let i = 0; i < pcN[sd]; i++) {
-                    const m = pcList[sd][i], base = (pcType[m] * NSQ + pcSq[m]) * NSQ;
-                    let near = UNREACHABLE;
-                    for (let j = 0; j < pcN[opp]; j++) {
-                        const d = DIST[base + pcSq[pcList[opp][j]]];
-                        if (d < near) near = d;
-                    }
-                    if (near < PROX.length) proxMine += pcVal[m] * PROX[near];
-                }
-                for (let i = 0; i < pcN[opp]; i++) {
-                    const m = pcList[opp][i], base = (pcType[m] * NSQ + pcSq[m]) * NSQ;
-                    let near = UNREACHABLE;
-                    for (let j = 0; j < pcN[sd]; j++) {
-                        const d = DIST[base + pcSq[pcList[sd][j]]];
-                        if (d < near) near = d;
-                    }
-                    if (near < PROX.length) proxTheirs += pcVal[m] * PROX[near];
-                }
-
-                return (pts[sd] - pts[opp]) * PT
-                    + bestMine * W_THREAT - bestTheirs * W_THREAT_OPP
-                    + (sumMine - bestMine) * W_THREAT2 - (sumTheirs - bestTheirs) * W_THREAT2_OPP
-                    + proxMine - proxTheirs
-                    + (mobility[sd] - mobility[opp]) * W_MOB;
+                return score + (mobility[sd] - mobility[opp]) * W_MOB;
             }
 
-            // A position can only repeat across quiet moves: every swap
-            // changes a score, and scores are part of the hash. So the scan
-            // never needs to look further back than the last swap.
-            function isRepetition(ply) {
-                const limit = ply - quietRun;
-                for (let i = ply - 2; i >= limit && i >= 0; i -= 2) {
-                    if (path[i] === z1) return true;
+            // Can `sd`, to move, finish a line with this move? Only by landing
+            // on the one square of a window it doesn't hold - empty, or an
+            // enemy piece to swap with - with a piece from outside it.
+            function winsNow(sd) {
+                const koFrom = ko >= 0 ? (ko & 63) : -1;
+                const koTo = ko >= 0 ? (ko >> 6) : -1;
+                const list = pcList[sd], count = pcN[sd];
+                for (let i = 0; i < NWIN; i++) {
+                    const w = WINDOWS[i];
+                    let mine = 0, gap = -1;
+                    for (let k = 0; k < CONNECT; k++) {
+                        const pc = sqPc[w[k]];
+                        if (pc >= 0 && pcSide[pc] === sd) mine++; else gap = w[k];
+                    }
+                    if (mine !== CONNECT - 1 || (VOIDS && sqVoid[gap])) continue;
+                    for (let j = 0; j < count; j++) {
+                        const pc = list[j], from = pcSq[pc], type = pcType[pc];
+                        if (w.indexOf(from) >= 0) continue;
+                        if (from === koFrom && gap === koTo) continue;
+                        if (type === 0 || type === 4) {
+                            if ((type === 0 ? KING_T[from] : KNIGHT_T[from]).indexOf(gap) >= 0) return true;
+                            continue;
+                        }
+                        const lo = type === 3 ? 4 : 0, hi = type === 2 ? 4 : 8;
+                        for (let dir = lo; dir < hi; dir++) {
+                            const ray = RAYS[from][dir];
+                            for (let r = 0; r < ray.length; r++) {
+                                if (ray[r] === gap) return true;
+                                if (sqPc[ray[r]] >= 0 || sqVoid[ray[r]]) break;
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+
+            // Both Zobrist halves folded into one 53-bit number, exact in a
+            // double, so a Set can hold it.
+            function posKey() {
+                return (z1 >>> 0) * 2097152 + (z2 >>> 11);
+            }
+
+            // The no-repeat rule: a move may not bring back a position that
+            // has been on the board before - either in the game so far
+            // (seenKeys) or earlier on this search line, which would be
+            // history by the time the move came round (path[0..ply]). Called
+            // with the move made; a move that finishes a line ends the game,
+            // so it is never banned. Nothing in this game is irreversible, so
+            // the scan walks the whole line.
+            function isBanned(ply) {
+                if (winFlag >= 0) return false;
+                const k = posKey();
+                if (seenKeys.has(k)) return true;
+                for (let i = ply; i >= 0; i--) {
+                    if (path[i] === k) return true;
                 }
                 return false;
             }
@@ -2858,9 +3035,32 @@
                 if (prevMove) counters[base + prevMove] = mv;
             }
 
-            // TT move, then swaps by what they actually score (landed-on
-            // value plus the mover's bonus), then killers and the
-            // counter-move, then history.
+            // What landing on `to` does for our lines: over every window
+            // through it that the opponent has not already poisoned, the
+            // number of squares we would hold there, squared - so filling in
+            // a window we nearly own counts for far more than opening a new
+            // one. Called before the move is made, so `to` counts as ours.
+            function lineGain(to, sd) {
+                const list = WIN_AT[to];
+                let total = 0;
+                for (let i = 0; i < list.length; i++) {
+                    const w = WINDOWS[list[i]];
+                    let mine = 0, dead = false;
+                    for (let k = 0; k < CONNECT; k++) {
+                        const sq = w[k];
+                        if (sq === to) { mine++; continue; }
+                        if (VOIDS && sqVoid[sq]) { dead = true; break; }
+                        const pc = sqPc[sq];
+                        if (pc < 0) continue;
+                        if (pcSide[pc] === sd) mine++; else { dead = true; break; }
+                    }
+                    if (!dead) total += mine * mine;
+                }
+                return total;
+            }
+
+            // TT move, then swaps, then killers and the counter-move, then
+            // history - with every move nudged by what it does for our lines.
             function scoreMoves(off, n, sd, ttMove, ply, prevMove) {
                 const base = sd * 4096;
                 const k0 = killers[ply * 2], k1 = killers[ply * 2 + 1];
@@ -2870,14 +3070,13 @@
                     let score;
                     if (mv === ttMove) score = 1 << 28;
                     else {
-                        const target = sqPc[(mv >> 6) & 63];
-                        if (target >= 0) {
-                            score = 2000000 + pcVal[sqPc[mv & 63]] * 1000;
-                        }
+                        const to = (mv >> 6) & 63;
+                        const gain = lineGain(to, sd) * 100;
+                        if (sqPc[to] >= 0) score = 2000000 + gain;
                         else if (mv === k0) score = 1500000;
                         else if (mv === k1) score = 1400000;
                         else if (mv === counter) score = 1300000;
-                        else score = Math.min(history[base + mv], 1000000);
+                        else score = Math.min(history[base + mv], 900000) + gain;
                     }
                     moveScores[off + i] = score;
                 }
@@ -2897,59 +3096,16 @@
                 return moves[off + i];
             }
 
-            // Quiescence: swaps only. A swap is this game's capture - it
-            // moves the banked-points term, which dominates the evaluation -
-            // so a search that stops on a quiet leaf one move before a queen
-            // swap reports a score that has nothing to do with the position.
-            function quiesce(alpha, beta, ply, qDepth) {
-                if ((++nodes & 1023) === 0 && deadline && Date.now() > deadline) throw ABORT;
-                const sd = side;
-                if (ply > seldepth) seldepth = ply;
-                // Only the side that just moved can have reached the target.
-                if (pts[sd ^ 1] >= winLimit) return -(MATE - ply);
-
-                const stand = evaluate(sd);
-                if (qDepth >= QMAX || ply >= MAXPLY - 2) return stand;
-                if (stand >= beta) return stand;
-                if (stand > alpha) alpha = stand;
-
-                const off = ply * MAXMOVES;
-                const n = gen(sd, off, true);
-                if (n === 0) return stand;
-                for (let i = 0; i < n; i++) {
-                    const mv = moves[off + i];
-                    moveScores[off + i] = pcVal[sqPc[mv & 63]];
-                }
-
-                let best = stand;
-                for (let i = 0; i < n; i++) {
-                    const mv = pick(off, n, i);
-                    const gain = pcVal[sqPc[mv & 63]] * PT;
-                    // Picked in descending value order, so once the best
-                    // remaining swap cannot reach alpha, none of them can.
-                    if (stand + gain + Q_DELTA < alpha) break;
-
-                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedQuiet = quietRun;
-                    make(mv); quietRun = 0;
-                    const score = -quiesce(-beta, -alpha, ply + 1, qDepth + 1);
-                    unmake(mv, savedKo, savedZ1, savedZ2); quietRun = savedQuiet;
-
-                    if (score > best) best = score;
-                    if (score > alpha) alpha = score;
-                    if (alpha >= beta) break;
-                }
-                return best;
-            }
-
             function search(depth, alpha, beta, ply, canNull) {
                 if ((++nodes & 1023) === 0 && deadline && Date.now() > deadline) throw ABORT;
 
                 const sd = side;
-                if (pts[sd ^ 1] >= winLimit) return -(MATE - ply);
+                // The move that got here may have finished a line - either
+                // the mover's, or (via a swap) ours.
+                if (winFlag >= 0) return winFlag === sd ? MATE - ply : -(MATE - ply);
                 if (ply >= MAXPLY - 2) return evaluate(sd);
 
-                path[ply] = z1;
-                if (ply > 0 && nullCount === 0 && isRepetition(ply)) return 0;
+                path[ply] = posKey();
 
                 const isPV = beta - alpha > 1;
                 const idx = z1 & TTMASK;
@@ -2965,7 +3121,7 @@
                     }
                 }
 
-                if (depth <= 0) return quiesce(alpha, beta, ply, 0);
+                if (depth <= 0) return LEAF_WIN && winsNow(sd) ? MATE - ply - 1 : evaluate(sd);
 
                 const stand = evaluate(sd);
 
@@ -2987,8 +3143,8 @@
                 }
 
                 const off = ply * MAXMOVES;
-                const n = gen(sd, off, false);
-                if (n === 0) return VOIDS ? -(MATE - ply) : stand;
+                const n = gen(sd, off);
+                if (n === 0) return VOIDS ? -(MATE - ply) : 0;
                 scoreMoves(off, n, sd, ttMove, ply, ply > 0 ? prevMoveAt[ply - 1] : 0);
 
                 const origAlpha = alpha;
@@ -3006,10 +3162,10 @@
                         if (!isPV && depth <= 3 && searched >= LMP_BASE + depth * LMP_PER_DEPTH) continue;
                     }
 
-                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedQuiet = quietRun;
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedWin = winFlag;
                     prevMoveAt[ply] = mv;
                     make(mv);
-                    quietRun = isSwap ? 0 : savedQuiet + 1;
+                    if (isBanned(ply)) { unmake(mv, savedKo, savedZ1, savedZ2, savedWin); continue; }
 
                     let r = 0;
                     if (depth >= LMR_MIN_DEPTH && searched >= LMR_MIN_MOVES && !isSwap) {
@@ -3028,8 +3184,7 @@
                         if (score > alpha && score < beta) score = -search(depth - 1, -beta, -alpha, ply + 1, true);
                     }
 
-                    unmake(mv, savedKo, savedZ1, savedZ2);
-                    quietRun = savedQuiet;
+                    unmake(mv, savedKo, savedZ1, savedZ2, savedWin);
                     searched++;
 
                     if (score > bestScore) { bestScore = score; bestLocal = mv; }
@@ -3040,7 +3195,10 @@
                     }
                 }
 
-                if (searched === 0) return stand;   // every move was pruned
+                // Pruning only starts once a move has been searched, so this
+                // means every move was banned: the side to move is stuck,
+                // which is a draw.
+                if (searched === 0) return 0;
 
                 let stored = bestScore;
                 if (stored > MATE_TH) stored += ply;
@@ -3056,12 +3214,22 @@
                 return bestScore;
             }
 
-            // Root move list.
-            function genRoot() {
-                const n = gen(side, 0, false);
+            // Root move list. `allowed`, when given, is the list of
+            // encoded moves the rules permit this turn - the game uses it for
+            // white's handicapped opening, where only a quiet knight move is
+            // legal. Moves the no-repeat rule bans are dropped too.
+            function genRoot(allowed) {
+                const n = gen(side, 0);
+                path[0] = posKey();
                 let out = 0;
                 for (let i = 0; i < n; i++) {
                     const mv = moves[i];
+                    if (allowed && allowed.indexOf(mv) < 0) continue;
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedWin = winFlag;
+                    make(mv);
+                    const banned = isBanned(0);
+                    unmake(mv, savedKo, savedZ1, savedZ2, savedWin);
+                    if (banned) continue;
                     rootMv[out] = mv;
                     rootSc[out] = -INF;
                     out++;
@@ -3072,16 +3240,13 @@
             function searchRoot(depth, alpha, beta, rootN) {
                 let best = -INF;
                 for (let i = 0; i < rootN; i++) rootSc[i] = -INF;
-                quietRun = 0;
-                path[0] = z1;
+                path[0] = posKey();
 
                 for (let i = 0; i < rootN; i++) {
                     const mv = rootMv[i];
-                    const isSwap = sqPc[(mv >> 6) & 63] >= 0;
-                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2;
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedWin = winFlag;
                     prevMoveAt[0] = mv;
                     make(mv);
-                    quietRun = isSwap ? 0 : 1;
 
                     let score;
                     if (i === 0) {
@@ -3091,8 +3256,7 @@
                         if (score > alpha && score < beta) score = -search(depth - 1, -beta, -alpha, 1, true);
                     }
 
-                    unmake(mv, savedKo, savedZ1, savedZ2);
-                    quietRun = 0;
+                    unmake(mv, savedKo, savedZ1, savedZ2, savedWin);
                     rootSc[i] = score;
 
                     if (score > best) { best = score; bestMove = mv; }
@@ -3116,8 +3280,8 @@
             // Iterative deepening with aspiration windows. Each iteration
             // seeds the next one's move ordering and search window, which is
             // what makes the deeper iterations affordable at all.
-            function iterate(maxDepth) {
-                const rootN = genRoot();
+            function iterate(maxDepth, allowed) {
+                const rootN = genRoot(allowed);
                 if (rootN === 0) return -1;
                 bestMove = rootMv[0];
                 completedDepth = 0;
@@ -3158,16 +3322,26 @@
             // otherwise it runs to `depth`.
             //
             // The transposition table deliberately survives between calls:
-            // scores are side-to-move relative and keys include the banked
-            // points, so entries stay valid as the game goes on.
-            function think(objBoard, objLastSwap, aiColor, depth, timeMs, scoreWhite, scoreBlack, winScore, objVoids) {
-                const wl = winScore || cfg.winScore;
-                if (wl !== winLimit) { winLimit = wl; ttGen.fill(0); }
-                load(objBoard, objLastSwap, aiColor, scoreWhite || 0, scoreBlack || 0, objVoids);
+            // scores are side-to-move relative, so entries stay valid as the
+            // game goes on.
+            //
+            // `seen` lists every position played so far this game, as
+            // { board, lastSwap, turn }, for the no-repeat rule. It has to be
+            // positions rather than keys: every engine seeds its own Zobrist
+            // keys, so the game's and the worker's would never match.
+            function think(objBoard, objLastSwap, aiColor, depth, timeMs, objVoids, allowed, seen) {
+                seenKeys.clear();
+                if (seen) {
+                    for (const pos of seen) {
+                        load(pos.board, pos.lastSwap, pos.turn, objVoids);
+                        seenKeys.add(posKey());
+                    }
+                }
+                load(objBoard, objLastSwap, aiColor, objVoids);
                 generation = (generation % 255) + 1;
                 killers.fill(0);
                 for (let i = 0; i < history.length; i++) history[i] >>= 1;   // age, don't erase
-                nodes = 0; seldepth = 0; nullCount = 0; quietRun = 0; bestMove = -1;
+                nodes = 0; seldepth = 0; nullCount = 0; bestMove = -1;
 
                 const start = Date.now();
                 deadline = timeMs > 0 ? start + timeMs : 0;
@@ -3175,7 +3349,7 @@
 
                 let mv;
                 try {
-                    mv = iterate(timeMs > 0 ? MAXPLY - 4 : depth);
+                    mv = iterate(timeMs > 0 ? MAXPLY - 4 : depth, allowed);
                 } catch (err) {
                     if (err !== ABORT) { deadline = 0; softDeadline = 0; throw err; }
                     mv = bestMove;   // best fully-searched root move so far
@@ -3196,15 +3370,15 @@
                     if (z1 !== incr1 || z2 !== incr2) throw new Error('incremental hash diverged at ply ' + ply);
                 }
                 const off = ply * MAXMOVES;
-                const n = gen(side, off, false);
+                const n = gen(side, off);
                 if (depth === 1) return n;
                 let total = 0;
                 for (let i = 0; i < n; i++) {
                     const mv = moves[off + i];
-                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2;
+                    const savedKo = ko, savedZ1 = z1, savedZ2 = z2, savedWin = winFlag;
                     make(mv);
                     total += perftRec(depth - 1, ply + 1, verifyHash);
-                    unmake(mv, savedKo, savedZ1, savedZ2);
+                    unmake(mv, savedKo, savedZ1, savedZ2, savedWin);
                 }
                 return total;
             }
@@ -3218,7 +3392,7 @@
                 defaults: () => JSON.parse(JSON.stringify(DEFAULTS)),
                 clear: () => { ttGen.fill(0); history.fill(0); counters.fill(0); killers.fill(0); },
                 perft(objBoard, objLastSwap, sideToMove, depth, verifyHash) {
-                    load(objBoard, objLastSwap, sideToMove, 0, 0);
+                    load(objBoard, objLastSwap, sideToMove);
                     return depth <= 0 ? 1 : perftRec(depth, 0, !!verifyHash);
                 }
             };
@@ -3227,19 +3401,29 @@
         // Rule constants the engine needs; also shipped to the worker.
         const ENGINE_CONFIG = {
             boardSize: BOARD_SIZE,
-            moverValues: MOVER_VALUES,
-            winScore: WIN_SCORE
+            connect: CONNECT
         };
         const ENGINE = buildEngine(ENGINE_CONFIG);
 
         // Search the live position. timeMs > 0 gives a time budget, otherwise
         // it is a fixed-depth search.
-        function runSearch(aiColor, depth, timeMs, scoreWhite = 0, scoreBlack = 0, winScore = 0) {
-            return ENGINE.think(board, lastSwap, aiColor, depth, timeMs, scoreWhite, scoreBlack, winScore);
+        function runSearch(aiColor, depth, timeMs) {
+            return ENGINE.think(board, lastSwap, aiColor, depth, timeMs, null, allowedRootMoves(),
+                                positionLog);
+        }
+
+        // The engine generates every legal chess move; anything the *rules*
+        // take away on top of that (white's handicapped opening) is handed to
+        // it as a root move list, in the engine's own from | to<<6 encoding.
+        // null means "no restriction".
+        function allowedRootMoves() {
+            if (!openingKnightOnly()) return null;
+            return getAllMoves(currentTurn).map(m =>
+                (m.from.row * BOARD_SIZE + m.from.col) | ((m.to.row * BOARD_SIZE + m.to.col) << 6));
         }
 
         function findBestMove(aiColor, depth) {
-            return runSearch(aiColor, depth, 0, scores.white, scores.black);
+            return runSearch(aiColor, depth, 0);
         }
 
         // The AI worker is this same engine: stringify buildEngine, hand it
@@ -3254,9 +3438,8 @@
 const ENGINE = buildEngine(${JSON.stringify(cfg)});
 self.onmessage = function(e) {
     const move = ENGINE.think(e.data.board, e.data.lastSwap, e.data.aiColor,
-        e.data.depth || 4, e.data.timeMs || 0,
-        e.data.scoreWhite || 0, e.data.scoreBlack || 0, e.data.winScore || 0,
-        e.data.objVoids || null);
+        e.data.depth || 4, e.data.timeMs || 0, e.data.objVoids || null,
+        e.data.allowed || null, e.data.seen || null);
     self.postMessage({ requestId: e.data.requestId, move: move });
 };`;
         }
@@ -3284,11 +3467,9 @@ self.onmessage = function(e) {
         function applyAIMove(move, aiColor) {
             if (gameOver || currentTurn !== aiColor) return;
             if (!move) {
-                // No valid moves - skip turn (shouldn't happen normally)
-                currentTurn = playerColor;
-                resetTurnTimer();
-                updateUI();
-                renderBoard();
+                // Every move would repeat a position (makeMove normally
+                // catches this first).
+                endGame('draw', 'stuck');
                 return;
             }
             makeMove(move.from.row, move.from.col, move.to.row, move.to.col);
@@ -3312,14 +3493,12 @@ self.onmessage = function(e) {
                     aiColor: aiColor,
                     depth: cfg.depth || 0,
                     timeMs: cfg.timeMs || 0,
-                    scoreWhite: scores.white,
-                    scoreBlack: scores.black,
-                    winScore: WIN_SCORE
+                    allowed: allowedRootMoves(),
+                    seen: positionLog
                 };
                 aiWorker.postMessage(msg);
             } else {
-                applyAIMove(runSearch(aiColor, cfg.depth || 4, cfg.timeMs || 0,
-                    scores.white, scores.black, WIN_SCORE), aiColor);
+                applyAIMove(runSearch(aiColor, cfg.depth || 4, cfg.timeMs || 0), aiColor);
             }
         }
 
@@ -3439,10 +3618,12 @@ self.onmessage = function(e) {
                 aiMoveTimeout = null;
             }
             gameOver = false;
-            scores = { white: 0, black: 0 };
+            winLine = null;
+            openingMove = true;
             currentTurn = 'white';
             selectedSquare = null;
             validMoves = [];
+            bannedMoves = [];
             lastSwap = null;
             lastMove = null;
             moveHistory = [];
@@ -3456,9 +3637,8 @@ self.onmessage = function(e) {
             updateTimerDisplay('black', blackTime);
 
             initBoard();
-            // Record initial position for threefold repetition and history
-            positionCounts = new Map();
-            positionCounts.set(getBoardHash(), 1);
+            // Record the initial position for the no-repeat rule and history
+            resetPositions();
             saveBoardState();
             renderBoard();
             updateUI();
@@ -3470,7 +3650,7 @@ self.onmessage = function(e) {
         }
 
         // End game
-        function endGame(winner, reason = 'points') {
+        function endGame(winner, reason = 'connect') {
             if (gameOver) return;
             gameOver = true;
             clearInterval(timerInterval);
@@ -3485,7 +3665,8 @@ self.onmessage = function(e) {
 
             // Handle draw
             if (winner === 'draw') {
-                const reasonText = reason === 'threefold' ? 'Threefold Repetition' : 'Draw';
+                const reasonText = reason === 'stuck'
+                    ? `Draw - ${currentTurn === 'white' ? 'White' : 'Black'} has no new move` : 'Draw';
                 winnerText.textContent = `🤝 ${reasonText}!`;
                 banner.classList.add('show');
                 return;
@@ -3513,10 +3694,12 @@ self.onmessage = function(e) {
 
             gameOver = false;
             aiWatchPaused = false;
-            scores = { white: 0, black: 0 };
+            winLine = null;
+            openingMove = true;
             currentTurn = 'white';
             selectedSquare = null;
             validMoves = [];
+            bannedMoves = [];
 
             // Use configured time
             const time = selectedTime || Infinity;
@@ -3530,7 +3713,6 @@ self.onmessage = function(e) {
             moveHistory = [];
             boardHistory = [];
             viewingIndex = -1;
-            positionCounts = new Map(); // Reset threefold repetition tracking
             document.getElementById('moveLog').innerHTML = '';
             document.getElementById('viewingHistory').style.display = 'none';
 
@@ -3540,8 +3722,7 @@ self.onmessage = function(e) {
             updateTimerDisplay('black', blackTime);
 
             initBoard();
-            // Record initial position for threefold repetition tracking
-            positionCounts.set(getBoardHash(), 1);
+            resetPositions();
             saveBoardState();
             renderBoard();
             updateUI();
@@ -3599,10 +3780,10 @@ self.onmessage = function(e) {
         }
 
         // ==================== PUZZLE MODE ====================
-        // A puzzle is a position where the side to move can force reaching the
-        // points target within N of its own moves - whatever the opponent
-        // replies - where N is really needed (N-1 moves would not do it), and
-        // where exactly one first move does it. N is the level: 1, 2 or 3.
+        // A puzzle is a position where the side to move can force a line
+        // within N of its own moves - whatever the opponent replies - where N
+        // is really needed (N-1 moves would not do it), and where exactly one
+        // first move does it. N is the level: 1, 2 or 3.
         //
         // Positions come from engine-vs-engine games, so every puzzle is a
         // position that really arose. Each candidate is then checked by
@@ -3613,10 +3794,15 @@ self.onmessage = function(e) {
         const PUZZLE_DEPTH = 3;          // engine strength in the generator games
         const PUZZLE_MAX_PLIES = 120;
         const PUZZLE_LEVELS = [1, 2, 3];
-        // The most a single move can bank. N moves can bank at most N times
-        // this, so a position needing more than that is out of reach.
-        const PUZZLE_MAX_GAIN = Math.max(...Object.values(MOVER_VALUES));
         const PUZZLE_QUEUE_TARGET = 2;   // puzzles kept ready in the background
+        // Work cap for settling one candidate position. Proving a win is
+        // *not* forceable means walking the tree out in full, and on a board
+        // this open that occasionally explodes. A position that blows the
+        // budget is abandoned whole rather than half-analysed, so a partial
+        // answer can never be mistaken for an exact one.
+        const PUZZLE_BUDGET = 400000;
+        const PUZZLE_ABORT = { puzzle: 'over budget' };
+        let puzzleNodes = 0;
 
         let puzzleActive = false;
         let puzzleLevel = 2;             // moves the solver gets
@@ -3654,12 +3840,6 @@ self.onmessage = function(e) {
         // rule included - are the same ones the player will be held to.
         const otherColor = color => color === 'white' ? 'black' : 'white';
 
-        // Points the mover banks for a move: swaps score, quiet moves do not.
-        function moveGain(mv) {
-            return board[mv.to.row][mv.to.col]
-                ? MOVER_VALUES[board[mv.from.row][mv.from.col].type] : 0;
-        }
-
         function pushMove(mv) {
             const undo = { mv, lastSwap: lastSwap, turn: currentTurn,
                            target: board[mv.to.row][mv.to.col] };
@@ -3694,25 +3874,81 @@ self.onmessage = function(e) {
             currentTurn = undo.turn;
         }
 
-        // Biggest swaps first. The whole list is always searched, but looking
-        // at the moves that bank the most first finds the win - or the
-        // refutation - on the first try far more often than not.
-        function rankedMoves(color) {
-            return getAllMoves(color)
-                .map(mv => ({ mv: mv, gain: moveGain(mv) }))
-                .sort((a, b) => b.gain - a.gain);
+        function puzzleTick() {
+            if (++puzzleNodes > PUZZLE_BUDGET) throw PUZZLE_ABORT;
         }
 
-        // Can the side to move bank `needMe` points within `n` of its moves,
-        // against any defence? `needOpp` is what the opponent still needs -
-        // if they get there first the win was never forced.
-        function canForce(n, needMe, needOpp) {
-            if (n <= 0 || n * PUZZLE_MAX_GAIN < needMe) return false;
-            for (const { mv, gain } of rankedMoves(currentTurn)) {
-                if (gain >= needMe) return true;
-                if (n === 1) break;      // sorted: no later move finishes either
+        // Run one of the tree walks below with the work cap armed. A position
+        // too big to settle answers `fallback` instead of locking the page up.
+        function puzzleGuard(fn, fallback) {
+            puzzleNodes = 0;
+            try {
+                return fn();
+            } catch (err) {
+                if (err !== PUZZLE_ABORT) throw err;
+                return fallback;
+            }
+        }
+
+        // How full the fullest live window through `to` would be with `color`
+        // landing on it. Worked out without playing the move - the square
+        // counts as the mover's and whatever it vacates is ignored - which is
+        // close enough to order a move list by.
+        function landingLevel(color, row, col) {
+            let best = 0;
+            for (const wi of WIN_AT[row * BOARD_SIZE + col]) {
+                let mine = 1, dead = false;
+                for (const sq of WINDOWS[wi]) {
+                    if (sq.row === row && sq.col === col) continue;
+                    const piece = board[sq.row][sq.col];
+                    if (!piece) continue;
+                    if (piece.color === color) mine++; else { dead = true; break; }
+                }
+                if (!dead && mine > best) best = mine;
+            }
+            return best;
+        }
+
+        // The colour a move completes a line for, or null. Only the two
+        // squares that change hands can start a new line, and the mover is
+        // settled first: a swap that finishes both at once is still a win for
+        // the side that moved.
+        function moveWinner(mv, mover) {
+            const undo = pushMove(mv);
+            let winner = null;
+            if (lineLevel(mover, mv.to.row, mv.to.col) === CONNECT) winner = mover;
+            else if (undo.target &&
+                     lineLevel(otherColor(mover), mv.from.row, mv.from.col) === CONNECT) {
+                winner = otherColor(mover);
+            }
+            popMove(undo);
+            return winner;
+        }
+
+        // Most line-building move first. The whole list is always searched,
+        // but trying the moves that fill a window first finds the win - or the
+        // refutation - on the first try far more often than not, and every one
+        // of these walks exits early the moment it has its answer.
+        function rankedMoves(color) {
+            return getAllMoves(color)
+                .map(mv => ({ mv: mv, level: landingLevel(color, mv.to.row, mv.to.col) }))
+                .sort((a, b) => b.level - a.level);
+        }
+
+        // Can the side to move complete a line within `n` of its own moves,
+        // against any defence?
+        function canForce(n) {
+            puzzleTick();
+            if (n <= 0) return false;
+            const me = currentTurn;
+            for (const { mv } of rankedMoves(me)) {
+                const winner = moveWinner(mv, me);
+                if (winner === me) return true;
+                // A swap that finishes their line instead, or a move that
+                // simply does not finish ours in the last move we have.
+                if (winner || n === 1) continue;
                 const undo = pushMove(mv);
-                const forced = defenceFails(n - 1, needMe - gain, needOpp);
+                const forced = defenceFails(n - 1);
                 popMove(undo);
                 if (forced) return true;
             }
@@ -3721,13 +3957,17 @@ self.onmessage = function(e) {
 
         // Opponent to move: true when every legal reply still leaves the win
         // forced. One reply that escapes is enough to break it.
-        function defenceFails(n, needMe, needOpp) {
-            const replies = rankedMoves(currentTurn);
+        function defenceFails(n) {
+            puzzleTick();
+            const them = currentTurn;
+            const replies = rankedMoves(them);
             if (replies.length === 0) return false;
-            for (const { mv, gain } of replies) {
-                if (gain >= needOpp) return false;   // opponent gets there first
+            for (const { mv } of replies) {
+                const winner = moveWinner(mv, them);
+                if (winner === them) return false;   // they get there first
+                if (winner) continue;                // that reply loses it for them
                 const undo = pushMove(mv);
-                const still = canForce(n, needMe, needOpp - gain);
+                const still = canForce(n);
                 popMove(undo);
                 if (!still) return false;
             }
@@ -3735,14 +3975,17 @@ self.onmessage = function(e) {
         }
 
         // Every move that forces the win within `n`, for the side to move.
-        function forcedWins(n, needMe, needOpp) {
+        function forcedWins(n) {
             const wins = [];
             if (n <= 0) return wins;
-            for (const { mv, gain } of rankedMoves(currentTurn)) {
-                if (gain >= needMe) { wins.push(mv); continue; }
-                if (n === 1) continue;
+            const me = currentTurn;
+            for (const { mv } of rankedMoves(me)) {
+                puzzleTick();
+                const winner = moveWinner(mv, me);
+                if (winner === me) { wins.push(mv); continue; }
+                if (winner || n === 1) continue;
                 const undo = pushMove(mv);
-                const forced = defenceFails(n - 1, needMe - gain, needOpp);
+                const forced = defenceFails(n - 1);
                 popMove(undo);
                 if (forced) wins.push(mv);
             }
@@ -3751,23 +3994,26 @@ self.onmessage = function(e) {
 
         // The opponent's best practical try. Every reply loses, so the defence
         // plays for time: drag the win out for as many moves as possible, and
-        // among the replies that do that, leave the fewest ways through. Ties
-        // go to the reply that banks the most, since the moves are ranked that
-        // way. Dragging it out comes first, and that is what makes a win in N
+        // among the replies that do that, leave the fewest ways through.
+        // Dragging it out comes first, and that is what makes a win in N
         // really take N moves - a reply that let the solver finish early would
         // turn a three-mover into a two-mover.
-        function hardestReply(n, needMe, needOpp) {
-            let best = null;
-            for (const { mv, gain } of rankedMoves(currentTurn)) {
-                // Reaching its own target ends the game on the spot - no
-                // refutation beats that, and the moves are gain-ordered, so the
-                // first one that does it is the best one. On the winning line
-                // this never fires: defenceFails has already ruled it out.
-                if (gain >= needOpp) return mv;
+        function hardestReply(n) {
+            let best = null, fallback = null;
+            const them = currentTurn;
+            for (const { mv } of rankedMoves(them)) {
+                // Finishing their own line ends the game on the spot, and no
+                // refutation beats that. On the winning line this never fires:
+                // defenceFails has already ruled it out.
+                const winner = moveWinner(mv, them);
+                if (winner === them) return mv;
+                // Swapping the solver into their own line is the worst reply
+                // there is; keep one only in case they are all like that.
+                if (winner) { fallback = fallback || mv; continue; }
                 const undo = pushMove(mv);
                 let soonest = n, ways = 0;
                 for (let k = 1; k <= n; k++) {
-                    const wins = forcedWins(k, needMe, needOpp - gain);
+                    const wins = forcedWins(k);
                     if (wins.length) { soonest = k; ways = wins.length; break; }
                 }
                 popMove(undo);
@@ -3776,17 +4022,23 @@ self.onmessage = function(e) {
                     best = { mv: mv, soonest: soonest, ways: ways };
                 }
             }
-            return best && best.mv;
+            return best ? best.mv : fallback;
         }
 
         // The unique winning first move of a win in exactly `n`, or null when
         // this position is not that puzzle: out of reach, winnable sooner, or
         // winnable in more than one way.
-        function puzzleAt(n, needMe, needOpp) {
-            if (needMe > n * PUZZLE_MAX_GAIN) return null;
-            if (n > 1 && canForce(n - 1, needMe, needOpp)) return null;
-            const wins = forcedWins(n, needMe, needOpp);
-            return wins.length === 1 ? wins[0] : null;
+        function puzzleAt(n) {
+            // A line takes CONNECT pieces in one live window and a move adds
+            // at most one of them, so n moves can only ever finish a window
+            // that already holds CONNECT - n. Much the cheapest way to throw a
+            // position out, and it throws out nearly all of them.
+            if (bestLine(currentTurn) < CONNECT - n) return null;
+            return puzzleGuard(() => {
+                if (n > 1 && canForce(n - 1)) return null;
+                const wins = forcedWins(n);
+                return wins.length === 1 ? wins[0] : null;
+            }, null);
         }
 
         // ---- generation ---------------------------------------------------
@@ -3800,22 +4052,22 @@ self.onmessage = function(e) {
             dealBoard(board);
             lastSwap = null;
             currentTurn = 'white';
-            const banked = { white: 0, black: 0 };
+            openingMove = true;          // the generator plays white's handicap too
             let setup = null;            // the move that led into each candidate
 
             for (let ply = 0; ply < PUZZLE_MAX_PLIES; ply++) {
                 const me = currentTurn;
-                const need = WIN_SCORE - banked[me];
-                const needOpp = WIN_SCORE - banked[otherColor(me)];
+                if (checkWin(me) || checkWin(otherColor(me))) break;
 
-                if (need <= n * PUZZLE_MAX_GAIN && needOpp > 0) {
-                    const win = puzzleAt(n, need, needOpp);
+                // Never from the opening position: white's move list there is
+                // cut down to the handicap, which is not the puzzle's rules.
+                if (ply > 0) {
+                    const win = puzzleAt(n);
                     if (win) {
                         return {
                             board: board.map(r => r.map(c => c ? { ...c } : null)),
                             turn: me,
                             lastSwap: lastSwap ? JSON.parse(JSON.stringify(lastSwap)) : null,
-                            scores: { ...banked },
                             moves: n,
                             solution: win,
                             setup
@@ -3824,12 +4076,11 @@ self.onmessage = function(e) {
                 }
 
                 const mv = ENGINE.think(board, lastSwap, me, PUZZLE_DEPTH, 0,
-                    banked.white, banked.black, WIN_SCORE);
+                    null, allowedRootMoves());
                 if (!mv) break;
-                banked[me] += moveGain(mv);
                 pushMove(mv);
+                openingMove = false;
                 setup = mv;
-                if (banked[me] >= WIN_SCORE) break;
             }
             return null;
         }
@@ -3838,6 +4089,7 @@ self.onmessage = function(e) {
         // afterwards - this runs while a puzzle is on the board.
         function collectPuzzle(games = 1, n = 2) {
             const savedBoard = board, savedSwap = lastSwap, savedTurn = currentTurn;
+            const savedOpening = openingMove;
             try {
                 for (let i = 0; i < games; i++) {
                     const puzzle = harvestPuzzleGame(n);
@@ -3846,6 +4098,7 @@ self.onmessage = function(e) {
                 return null;
             } finally {
                 board = savedBoard; lastSwap = savedSwap; currentTurn = savedTurn;
+                openingMove = savedOpening;
             }
         }
 
@@ -3892,6 +4145,7 @@ self.onmessage = function(e) {
             puzzleCurrent = null;
             selectedSquare = null;
             validMoves = [];
+            bannedMoves = [];
             lastMove = null;
 
             updateBoardCSS();
@@ -3942,6 +4196,7 @@ self.onmessage = function(e) {
             // origin, so a piece still sitting on `from` afterwards is the
             // one that was swapped.
             const setup = puzzle.setup;
+            openingMove = false;         // a puzzle never starts from the opening
             board = puzzle.board.map(row => row.map(cell => cell ? { ...cell } : null));
             if (setup) {
                 const moving = puzzle.board[setup.to.row][setup.to.col];
@@ -3950,15 +4205,13 @@ self.onmessage = function(e) {
                 board[setup.to.row][setup.to.col] = captured || null;
                 lastSwap = null;         // pushMove rebuilds it as it replays
                 currentTurn = otherColor(puzzle.turn);
-                scores = { ...puzzle.scores };
-                scores[moving.color] -= captured ? MOVER_VALUES[moving.type] : 0;
             } else {
                 lastSwap = puzzle.lastSwap ? JSON.parse(JSON.stringify(puzzle.lastSwap)) : null;
                 currentTurn = puzzle.turn;
-                scores = { ...puzzle.scores };
             }
             selectedSquare = null;
             validMoves = [];
+            bannedMoves = [];
             lastMove = null;
             document.querySelector('.game-container').style.display = 'flex';
 
@@ -3981,15 +4234,14 @@ self.onmessage = function(e) {
             const left = puzzleMovesLeft;
             document.getElementById('puzzleTurnSide').textContent =
                 currentTurn === 'white' ? 'White' : 'Black';
-            document.getElementById('puzzleNeedWhite').textContent = scores.white;
-            document.getElementById('puzzleNeedBlack').textContent = scores.black;
+            document.getElementById('puzzleNeedWhite').textContent = `${bestLine('white')}/${CONNECT}`;
+            document.getElementById('puzzleNeedBlack').textContent = `${bestLine('black')}/${CONNECT}`;
             const hintMsg = puzzleOffLine
                     ? `The win is gone - ${left} ${left === 1 ? 'move' : 'moves'} left to play out`
                     : left <= 1
                         ? 'One move wins it'
                         : `Force the win in ${left}`;
-            document.getElementById('puzzleHint').innerHTML =
-                hintMsg + '<br>♞=5 · ♝=3 · ♚=3 · ♜=2 · ♛=1';
+            document.getElementById('puzzleHint').textContent = hintMsg;
             updatePuzzleControls();
         }
 
@@ -4016,6 +4268,7 @@ self.onmessage = function(e) {
                 const from = selectedSquare;
                 selectedSquare = null;
                 validMoves = [];
+                bannedMoves = [];
                 tryPuzzleMove(from, { row, col });
                 return;
             }
@@ -4025,6 +4278,7 @@ self.onmessage = function(e) {
             } else {
                 selectedSquare = null;
                 validMoves = [];
+                bannedMoves = [];
             }
             renderBoard();
         }
@@ -4037,18 +4291,19 @@ self.onmessage = function(e) {
         function tryPuzzleMove(from, to) {
             const mv = { from: from, to: to };
             const me = currentTurn;
-            const needMe = remaining(me), needOpp = remaining(otherColor(me));
-            const gain = moveGain(mv);
             const notation = notationFor(mv);
+            const winner = moveWinner(mv, me);
 
             let losesIt;
-            if (gain >= needMe) {
+            if (winner === me) {
                 losesIt = false;                     // that is the win, right now
+            } else if (winner) {
+                losesIt = true;                      // the swap handed them their line
             } else if (puzzleMovesLeft <= 1) {
                 losesIt = true;                      // last move, and it did not land
             } else {
                 const undo = pushMove(mv);
-                losesIt = !defenceFails(puzzleMovesLeft - 1, needMe - gain, needOpp);
+                losesIt = puzzleGuard(() => !defenceFails(puzzleMovesLeft - 1), true);
                 popMove(undo);
             }
 
@@ -4063,16 +4318,17 @@ self.onmessage = function(e) {
             playPuzzleMove(mv, () => {
                 puzzleLine.push(notation);
                 puzzleMovesLeft--;
-                if (remaining(me) <= 0) { solvePuzzle(); return; }
+                if (checkWin(me)) { solvePuzzle(); return; }
+                if (checkWin(otherColor(me))) { endPuzzleAttempt('lost'); return; }
                 if (puzzleMovesLeft <= 0) { endPuzzleAttempt('stuck'); return; }
                 puzzleBusy = true;       // the opponent is about to answer
                 setTimeout(() => {
                     if (!puzzleActive || !puzzleCurrent) return;
-                    const reply = hardestReply(puzzleMovesLeft,
-                        remaining(me), remaining(otherColor(me)));
+                    const reply = puzzleGuard(() => hardestReply(puzzleMovesLeft), null);
                     if (!reply) { endPuzzleAttempt('stuck'); return; }
                     playPuzzleMove(reply, () => {
-                        if (remaining(otherColor(me)) <= 0) endPuzzleAttempt('lost');
+                        if (checkWin(otherColor(me))) endPuzzleAttempt('lost');
+                        else if (checkWin(me)) solvePuzzle();
                         else updatePuzzleHUD();
                     });
                 }, 450);
@@ -4095,7 +4351,6 @@ self.onmessage = function(e) {
                 board: board.map(row => row.map(cell => cell ? { ...cell } : null)),
                 lastSwap: lastSwap ? JSON.parse(JSON.stringify(lastSwap)) : null,
                 turn: currentTurn,
-                scores: { ...scores },
                 movesLeft: puzzleMovesLeft,
                 offLine: puzzleOffLine,
                 line: puzzleLine.slice(),
@@ -4107,7 +4362,6 @@ self.onmessage = function(e) {
             board = snap.board.map(row => row.map(cell => cell ? { ...cell } : null));
             lastSwap = snap.lastSwap ? JSON.parse(JSON.stringify(snap.lastSwap)) : null;
             currentTurn = snap.turn;
-            scores = { ...snap.scores };
             puzzleMovesLeft = snap.movesLeft;
             puzzleOffLine = snap.offLine;
             puzzleLine = snap.line.slice();
@@ -4125,6 +4379,7 @@ self.onmessage = function(e) {
             puzzleHintSquare = null;
             selectedSquare = null;
             validMoves = [];
+            bannedMoves = [];
             hidePuzzleVerdict();
             renderBoard();
             updatePuzzleHUD();
@@ -4140,6 +4395,7 @@ self.onmessage = function(e) {
             puzzleHintSquare = null;
             selectedSquare = null;
             validMoves = [];
+            bannedMoves = [];
             hidePuzzleVerdict();
         }
 
@@ -4155,16 +4411,17 @@ self.onmessage = function(e) {
             updatePuzzleControls();
             puzzleHintSquare = null;     // the hint was for the move just made
             const isSwap = !!board[mv.to.row][mv.to.col];
-            const points = moveGain(mv);
             const mover = currentTurn;
             lastMove = { from: { ...mv.from }, to: { ...mv.to } };
             animateMove(mv.from.row, mv.from.col, mv.to.row, mv.to.col, isSwap, () => {
                 if (!puzzleActive) return;
                 pushMove(mv);
-                scores[mover] += points;
-                if (isSwap) playSwapSound(points); else playMoveSound();
+                const level = lineLevel(mover, mv.to.row, mv.to.col);
+                if (isSwap || level >= CONNECT - 1) playLineSound(level);
+                else playMoveSound();
                 selectedSquare = null;
                 validMoves = [];
+                bannedMoves = [];
                 renderBoard();
                 puzzleBusy = false;
                 updatePuzzleControls();
@@ -4197,8 +4454,7 @@ self.onmessage = function(e) {
             if (!puzzleCurrent || puzzleBusy) return;
             if (puzzleOver === 'solved' || puzzleOver === 'skipped') return;
             rewindToLine();              // there is nothing to point at off the line
-            const wins = forcedWins(puzzleMovesLeft,
-                remaining(currentTurn), remaining(otherColor(currentTurn)));
+            const wins = puzzleGuard(() => forcedWins(puzzleMovesLeft), []);
             if (!wins.length) { renderBoard(); updatePuzzleHUD(); return; }
             markPuzzleMissed();
             puzzleHintSquare = { row: wins[0].from.row, col: wins[0].from.col };
@@ -4221,6 +4477,7 @@ self.onmessage = function(e) {
             puzzleOver = 'skipped';
             selectedSquare = null;
             validMoves = [];
+            bannedMoves = [];
             renderBoard();
             showPuzzleVerdict('Missed',
                 untouched && line.length === 1 ? `The only winning move was ${line[0]}`
@@ -4232,23 +4489,20 @@ self.onmessage = function(e) {
         // play now, for highlighting.
         function revealSolution(line) {
             const trail = [];
-            let needMe = remaining(currentTurn);
-            let needOpp = remaining(otherColor(currentTurn));
             let left = puzzleMovesLeft, next = null;
             try {
                 while (left > 0) {
-                    const wins = forcedWins(left, needMe, needOpp);
+                    const me = currentTurn;
+                    const wins = puzzleGuard(() => forcedWins(left), []);
                     if (!wins.length) break;
                     const mv = wins[0];
                     line.push(notationFor(mv));
                     if (!next) next = mv;
-                    needMe -= moveGain(mv);
                     trail.push(pushMove(mv));
-                    if (needMe <= 0) break;
+                    if (checkWin(me)) break;
                     left--;
-                    const reply = hardestReply(left, needMe, needOpp);
+                    const reply = puzzleGuard(() => hardestReply(left), null);
                     if (!reply) break;
-                    needOpp -= moveGain(reply);
                     trail.push(pushMove(reply));
                 }
             } finally {
