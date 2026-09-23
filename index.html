@@ -1361,11 +1361,11 @@
             <div class="config-section" id="aiDepthSection" style="display: none;">
                 <h3>Difficulty (depth)</h3>
                 <div class="config-options" id="aiDepthOptions">
+                    <button class="config-btn selected" data-depth="1" onclick="selectAIDepth(1)">Very Easy<span class="depth">1</span></button>
                     <button class="config-btn" data-depth="2" onclick="selectAIDepth(2)">Easy<span class="depth">2</span></button>
-                    <button class="config-btn" data-depth="4" onclick="selectAIDepth(4)">Medium<span class="depth">4</span></button>
-                    <button class="config-btn selected" data-depth="6" onclick="selectAIDepth(6)">Hard<span class="depth">6</span></button>
-                    <button class="config-btn" data-depth="8" onclick="selectAIDepth(8)">Expert<span class="depth">8</span></button>
-                    <button class="config-btn" data-depth="10" onclick="selectAIDepth(10)">Master<span class="depth">10</span></button>
+                    <button class="config-btn" data-depth="3" onclick="selectAIDepth(3)">Medium<span class="depth">3</span></button>
+                    <button class="config-btn" data-depth="4" onclick="selectAIDepth(4)">Hard<span class="depth">4</span></button>
+                    <button class="config-btn" data-depth="5" onclick="selectAIDepth(5)">Insane<span class="depth">5</span></button>
                 </div>
             </div>
             <div class="config-section" id="sideSection">
@@ -1522,7 +1522,7 @@
 
         // Game configuration
         let selectedTime = 180; // seconds per turn (0 = unlimited)
-        let selectedAIDepth = 6; // AI search depth in plies (its difficulty)
+        let selectedAIDepth = 1; // AI search depth in plies (its difficulty)
         let selectedSide = 'random'; // 'white', 'black', or 'random'
         let playerColor = 'white'; // actual color player is playing as
         let pendingMode = null; // mode waiting to be started after config
@@ -2427,15 +2427,14 @@
 
         // Single AI opponent; strength comes from the search depth chosen on
         // the config screen. Depth rather than time, so a level plays the
-        // same on every device. Depth 10 is the top: a few seconds at worst
-        // on a desktop, and deeper got too slow. AI_MAX_MS is a safety cap
-        // for the rare position that blows up (and for slow phones); when it
-        // hits, the engine plays the best move from the last finished depth.
+        // same on every device. AI_MAX_MS is a safety cap for the rare
+        // position that blows up (and for slow phones); when it hits, the
+        // engine plays the best move from the last finished depth.
         const AI_MODES = {
-            ai: { name: '🤖 AI', shortName: 'AI', title: 'vs AI', depth: 6 }
+            ai: { name: '🤖 AI', shortName: 'AI', title: 'vs AI', depth: 1 }
         };
         const AI_WATCH_MODE = 'aiwatch';
-        const AI_WATCH_DEFAULT_DEPTH = 8;
+        const AI_WATCH_DEFAULT_DEPTH = 5;
         const AI_MAX_MS = 10000;
 
         function isAIMode(mode) {
