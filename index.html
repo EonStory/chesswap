@@ -49,31 +49,6 @@
             color: #a0a0a0;
         }
 
-        .score-box {
-            margin: 10px 0;
-            padding: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .score-value {
-            font-weight: bold;
-            font-size: 2.4em;
-            line-height: 1;
-            transition: color 0.2s;
-        }
-
-        .score-value.near-win {
-            color: #4ade80;
-        }
-
-        .score-label {
-            font-size: 0.85em;
-            opacity: 0.7;
-            margin-top: 4px;
-        }
-
         .timer {
             text-align: center;
             margin-top: 20px;
@@ -172,6 +147,30 @@
 
         /* Off the winning line: the board stays red until you undo back onto
            it. Above the pieces, below nothing - it is a wash over the lot. */
+        /* Puzzles: the frame takes the colour of the side to move, so whose
+           turn it is reads off the board itself. The last-move highlight
+           can't say it - after a swap both squares hold a piece that moved. */
+        .board.to-move-white,
+        .board.to-move-black {
+            transition: border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .board.to-move-white {
+            border-color: #f1ede3;
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.55),
+                0 0 24px rgba(255, 255, 255, 0.35),
+                inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+
+        .board.to-move-black {
+            border-color: #0c0c10;
+            box-shadow:
+                0 20px 60px rgba(0, 0, 0, 0.55),
+                0 0 0 2px rgba(255, 255, 255, 0.3),
+                inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+        }
+
         .board.off-line::after {
             content: '';
             position: absolute;
@@ -503,24 +502,6 @@
             white-space: nowrap;
         }
 
-        /* The score is the thing you are actually racing, so it is the
-           loudest part of the band. */
-        .puzzle-turn-indicator .tally {
-            border-left: 1px solid rgba(255, 255, 255, 0.25);
-            padding-left: 18px;
-            color: #c8c8d4;
-        }
-
-        .puzzle-turn-indicator .tally b {
-            font-size: 1.25em;
-            color: #fbbf24;
-        }
-
-        .puzzle-turn-indicator .dash {
-            opacity: 0.45;
-            padding: 0 4px;
-        }
-
         .puzzle-loading {
             font-size: 1.5em;
             color: #a0a0a0;
@@ -792,6 +773,17 @@
 
         .config-btn .icon {
             margin-right: 6px;
+        }
+
+        #aiDepthOptions .config-btn {
+            padding: 8px 14px;
+            line-height: 1.25;
+        }
+
+        #aiDepthOptions .config-btn .depth {
+            display: block;
+            font-size: 0.8em;
+            opacity: 0.7;
         }
 
         .config-actions {
@@ -1261,10 +1253,6 @@
                 text-align: center;
             }
 
-            .puzzle-turn-indicator .tally {
-                padding-left: 10px;
-            }
-
             .puzzle-hint {
                 bottom: max(10px, env(safe-area-inset-bottom));
                 width: calc(100% - 24px);
@@ -1347,7 +1335,6 @@
         </div>
         <div class="puzzle-turn-indicator" id="puzzleTurnIndicator">
             <span class="to-move"><b id="puzzleTurnSide">White</b> to move</span>
-            <span class="tally">White <b id="puzzleNeedWhite">0/4</b><span class="dash">-</span>Black <b id="puzzleNeedBlack">0/4</b></span>
         </div>
         <div class="puzzle-hint" id="puzzleHint">Force the win</div>
         <div class="puzzle-loading" id="puzzleLoading">Finding a puzzle...</div>
@@ -1365,20 +1352,20 @@
             <div class="config-section" id="turnTimeSection">
                 <h3>Time per Turn</h3>
                 <div class="config-options" id="timeOptions">
-                    <button class="config-btn" data-time="30" onclick="selectTime(30)">30s</button>
-                    <button class="config-btn selected" data-time="60" onclick="selectTime(60)">1 min</button>
-                    <button class="config-btn" data-time="120" onclick="selectTime(120)">2 min</button>
+                    <button class="config-btn" data-time="90" onclick="selectTime(90)">1.5 min</button>
+                    <button class="config-btn selected" data-time="180" onclick="selectTime(180)">3 min</button>
+                    <button class="config-btn" data-time="360" onclick="selectTime(360)">6 min</button>
                     <button class="config-btn" data-time="0" onclick="selectTime(0)">∞ Unlimited</button>
                 </div>
             </div>
-            <div class="config-section" id="aiTimeSection" style="display: none;">
-                <h3 id="aiTimeTitle">AI Think Time</h3>
-                <div class="config-options" id="aiTimeOptions">
-                    <button class="config-btn selected" data-aitime="100" onclick="selectAITime(100)">0.1s</button>
-                    <button class="config-btn" data-aitime="500" onclick="selectAITime(500)">0.5s</button>
-                    <button class="config-btn" data-aitime="1000" onclick="selectAITime(1000)">1s</button>
-                    <button class="config-btn" data-aitime="3000" onclick="selectAITime(3000)">3s</button>
-                    <button class="config-btn" data-aitime="5000" onclick="selectAITime(5000)">5s</button>
+            <div class="config-section" id="aiDepthSection" style="display: none;">
+                <h3>Difficulty (depth)</h3>
+                <div class="config-options" id="aiDepthOptions">
+                    <button class="config-btn" data-depth="2" onclick="selectAIDepth(2)">Easy<span class="depth">2</span></button>
+                    <button class="config-btn" data-depth="4" onclick="selectAIDepth(4)">Medium<span class="depth">4</span></button>
+                    <button class="config-btn selected" data-depth="6" onclick="selectAIDepth(6)">Hard<span class="depth">6</span></button>
+                    <button class="config-btn" data-depth="8" onclick="selectAIDepth(8)">Expert<span class="depth">8</span></button>
+                    <button class="config-btn" data-depth="10" onclick="selectAIDepth(10)">Master<span class="depth">10</span></button>
                 </div>
             </div>
             <div class="config-section" id="sideSection">
@@ -1399,13 +1386,9 @@
     <div class="game-container">
         <div class="side-panel white">
             <h3>⚪ White</h3>
-            <div class="score-box">
-                <div class="score-value" id="whiteScore">0/4</div>
-                <div class="score-label">in a line</div>
-            </div>
             <div class="timer" id="whiteTimer">
                 <div>Time</div>
-                <div class="timer-value" id="whiteTime">1:00</div>
+                <div class="timer-value" id="whiteTime">3:00</div>
             </div>
         </div>
 
@@ -1431,13 +1414,9 @@
 
         <div class="side-panel black">
             <h3>⚫ Black</h3>
-            <div class="score-box">
-                <div class="score-value" id="blackScore">0/4</div>
-                <div class="score-label">in a line</div>
-            </div>
             <div class="timer" id="blackTimer">
                 <div>Time</div>
-                <div class="timer-value" id="blackTime">1:00</div>
+                <div class="timer-value" id="blackTime">3:00</div>
             </div>
         </div>
 
@@ -1529,8 +1508,8 @@
         let selectedSquare = null;
         let validMoves = [];
         let bannedMoves = []; // the selected piece's moves that would repeat a position
-        let whiteTime = 60;
-        let blackTime = 60;
+        let whiteTime = 180;
+        let blackTime = 180;
         let timerInterval = null;
         let gameOver = false;
         let winLine = null;  // the completed line, for highlighting it
@@ -1542,8 +1521,8 @@
         let lastMove = null; // Tracks last move for highlighting {from, to}
 
         // Game configuration
-        let selectedTime = 60; // seconds per turn (0 = unlimited)
-        let selectedAITime = 100; // AI think time in ms (its difficulty)
+        let selectedTime = 180; // seconds per turn (0 = unlimited)
+        let selectedAIDepth = 6; // AI search depth in plies (its difficulty)
         let selectedSide = 'random'; // 'white', 'black', or 'random'
         let playerColor = 'white'; // actual color player is playing as
         let pendingMode = null; // mode waiting to be started after config
@@ -1770,6 +1749,8 @@
         function renderBoard() {
             const boardEl = document.getElementById('board');
             boardEl.classList.toggle('off-line', !!puzzleOffLine);
+            boardEl.classList.toggle('to-move-white', puzzleActive && currentTurn === 'white');
+            boardEl.classList.toggle('to-move-black', puzzleActive && currentTurn === 'black');
             boardEl.innerHTML = '';
 
             for (let row = 0; row < BOARD_SIZE; row++) {
@@ -2186,15 +2167,6 @@
             document.getElementById('turnText').textContent = turnText;
             document.getElementById('turnIcon').textContent = currentTurn === 'white' ? '♔' : '♚';
 
-            // Update the "best line so far" readouts
-            const whiteScoreEl = document.getElementById('whiteScore');
-            const blackScoreEl = document.getElementById('blackScore');
-            const whiteLine = bestLine('white'), blackLine = bestLine('black');
-            whiteScoreEl.textContent = `${whiteLine}/${CONNECT}`;
-            blackScoreEl.textContent = `${blackLine}/${CONNECT}`;
-            whiteScoreEl.classList.toggle('near-win', whiteLine >= CONNECT - 1);
-            blackScoreEl.classList.toggle('near-win', blackLine >= CONNECT - 1);
-
             // Update active timer styling
             document.getElementById('whiteTimer').style.opacity = currentTurn === 'white' ? '1' : '0.5';
             document.getElementById('blackTimer').style.opacity = currentTurn === 'black' ? '1' : '0.5';
@@ -2453,13 +2425,18 @@
             document.getElementById('viewingHistory').style.display = 'none';
         }
 
-        // Single AI opponent; strength comes from the think time chosen on
-        // the config screen (iterative deepening searches deeper with more time).
+        // Single AI opponent; strength comes from the search depth chosen on
+        // the config screen. Depth rather than time, so a level plays the
+        // same on every device. Depth 10 is the top: a few seconds at worst
+        // on a desktop, and deeper got too slow. AI_MAX_MS is a safety cap
+        // for the rare position that blows up (and for slow phones); when it
+        // hits, the engine plays the best move from the last finished depth.
         const AI_MODES = {
-            ai: { name: '🤖 AI', shortName: 'AI', title: 'vs AI', timeMs: 100 }
+            ai: { name: '🤖 AI', shortName: 'AI', title: 'vs AI', depth: 6 }
         };
         const AI_WATCH_MODE = 'aiwatch';
-        const AI_WATCH_DEFAULT_MS = 3000;
+        const AI_WATCH_DEFAULT_DEPTH = 8;
+        const AI_MAX_MS = 10000;
 
         function isAIMode(mode) {
             return Object.prototype.hasOwnProperty.call(AI_MODES, mode);
@@ -2476,8 +2453,8 @@
             if (aiMoveTimeout) clearTimeout(aiMoveTimeout);
             aiMoveTimeout = setTimeout(() => {
                 aiMoveTimeout = null;
-                makeSmartAIMove({ timeMs: selectedAITime });
-            }, 500);
+                makeSmartAIMove({ depth: selectedAIDepth, timeMs: AI_MAX_MS });
+            }, gameMode === AI_WATCH_MODE ? 1000 : 500);   // watch mode: slow enough to follow
         }
 
         function updateGameModeControls() {
@@ -3318,8 +3295,9 @@
                 return bestMove;
             }
 
-            // Public entry point. Pass timeMs > 0 for a time-budgeted search,
-            // otherwise it runs to `depth`.
+            // Public entry point. It searches to `depth`; timeMs > 0 caps the
+            // time as well. With depth 0 and a time budget it goes as deep as
+            // the time allows.
             //
             // The transposition table deliberately survives between calls:
             // scores are side-to-move relative, so entries stay valid as the
@@ -3349,7 +3327,7 @@
 
                 let mv;
                 try {
-                    mv = iterate(timeMs > 0 ? MAXPLY - 4 : depth, allowed);
+                    mv = iterate(depth > 0 ? Math.min(depth, MAXPLY - 4) : timeMs > 0 ? MAXPLY - 4 : 4, allowed);
                 } catch (err) {
                     if (err !== ABORT) { deadline = 0; softDeadline = 0; throw err; }
                     mv = bestMove;   // best fully-searched root move so far
@@ -3405,8 +3383,7 @@
         };
         const ENGINE = buildEngine(ENGINE_CONFIG);
 
-        // Search the live position. timeMs > 0 gives a time budget, otherwise
-        // it is a fixed-depth search.
+        // Search the live position to `depth`, capped at timeMs if > 0.
         function runSearch(aiColor, depth, timeMs) {
             return ENGINE.think(board, lastSwap, aiColor, depth, timeMs, null, allowedRootMoves(),
                                 positionLog);
@@ -3438,7 +3415,7 @@
 const ENGINE = buildEngine(${JSON.stringify(cfg)});
 self.onmessage = function(e) {
     const move = ENGINE.think(e.data.board, e.data.lastSwap, e.data.aiColor,
-        e.data.depth || 4, e.data.timeMs || 0, e.data.objVoids || null,
+        e.data.depth || 0, e.data.timeMs || 0, e.data.objVoids || null,
         e.data.allowed || null, e.data.seen || null);
     self.postMessage({ requestId: e.data.requestId, move: move });
 };`;
@@ -3476,7 +3453,7 @@ self.onmessage = function(e) {
         }
 
         // Smart AI picks the best move using minimax (off the main thread when
-        // possible). cfg is an AI_MODES entry: { depth } or { timeMs }.
+        // possible). cfg is { depth, timeMs }: see think().
         function makeSmartAIMove(cfg) {
             if (gameOver || aiWatchPaused || !isAIControlledTurn()) return;
             const aiColor = gameMode === AI_WATCH_MODE
@@ -3498,7 +3475,7 @@ self.onmessage = function(e) {
                 };
                 aiWorker.postMessage(msg);
             } else {
-                applyAIMove(runSearch(aiColor, cfg.depth || 4, cfg.timeMs || 0), aiColor);
+                applyAIMove(runSearch(aiColor, cfg.depth || 0, cfg.timeMs || 0), aiColor);
             }
         }
 
@@ -3519,14 +3496,12 @@ self.onmessage = function(e) {
             document.getElementById('turnTimeSection').style.display = watching ? 'none' : 'block';
             document.getElementById('sideSection').style.display =
                 base === 'pvp' || watching ? 'none' : 'block';
-            document.getElementById('aiTimeSection').style.display =
-                watching || (AI_MODES[base] && AI_MODES[base].timeMs) ? 'block' : 'none';
-            document.getElementById('aiTimeTitle').textContent =
-                watching ? 'Time per Move' : 'AI Think Time';
+            document.getElementById('aiDepthSection').style.display =
+                watching || AI_MODES[base] ? 'block' : 'none';
 
             // Reset selections to defaults
-            selectedTime = watching ? 0 : 60;
-            selectedAITime = watching ? AI_WATCH_DEFAULT_MS : 100;
+            selectedTime = watching ? 0 : 180;
+            selectedAIDepth = watching ? AI_WATCH_DEFAULT_DEPTH : AI_MODES.ai.depth;
             selectedSide = 'random';
             updateConfigButtons();
 
@@ -3538,8 +3513,8 @@ self.onmessage = function(e) {
             updateConfigButtons();
         }
 
-        function selectAITime(ms) {
-            selectedAITime = ms;
+        function selectAIDepth(depth) {
+            selectedAIDepth = depth;
             updateConfigButtons();
         }
 
@@ -3553,9 +3528,9 @@ self.onmessage = function(e) {
             document.querySelectorAll('#timeOptions .config-btn').forEach(btn => {
                 btn.classList.toggle('selected', parseInt(btn.dataset.time) === selectedTime);
             });
-            // Update AI think time buttons
-            document.querySelectorAll('#aiTimeOptions .config-btn').forEach(btn => {
-                btn.classList.toggle('selected', parseInt(btn.dataset.aitime) === selectedAITime);
+            // Update AI difficulty buttons
+            document.querySelectorAll('#aiDepthOptions .config-btn').forEach(btn => {
+                btn.classList.toggle('selected', parseInt(btn.dataset.depth) === selectedAIDepth);
             });
             // Update side buttons
             document.querySelectorAll('#sideOptions .config-btn').forEach(btn => {
@@ -3747,8 +3722,8 @@ self.onmessage = function(e) {
             clearInterval(timerInterval);
             cancelPendingAIWork(gameMode === AI_WATCH_MODE || isAIMode(gameMode));
             // Reset config to defaults
-            selectedTime = 60;
-            selectedAITime = 100;
+            selectedTime = 180;
+            selectedAIDepth = AI_MODES.ai.depth;
             selectedSide = 'random';
             playerColor = 'white';
             aiWatchPaused = false;
@@ -4234,8 +4209,6 @@ self.onmessage = function(e) {
             const left = puzzleMovesLeft;
             document.getElementById('puzzleTurnSide').textContent =
                 currentTurn === 'white' ? 'White' : 'Black';
-            document.getElementById('puzzleNeedWhite').textContent = `${bestLine('white')}/${CONNECT}`;
-            document.getElementById('puzzleNeedBlack').textContent = `${bestLine('black')}/${CONNECT}`;
             const hintMsg = puzzleOffLine
                     ? `The win is gone - ${left} ${left === 1 ? 'move' : 'moves'} left to play out`
                     : left <= 1
